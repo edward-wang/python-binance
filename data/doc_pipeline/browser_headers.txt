@@ -1,0 +1,17 @@
+accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7
+accept-language: en-US,en;q=0.9
+cache-control: max-age=0
+cookie: bnc-uuid=9750e6a9-e1de-4cde-b0f6-bbadfb80c1db; BNC_FV_KEY=339570a98f1fa7c881a96db5efe70000b1ece6f1; userPreferredCurrency=USD_USD; se_gd=BRSCADgQWGUFh0FNbBgMgZZB1CwgUBUUVNQZeVE9lJTVQUVNWVVV1; se_gsd=fAAhBUJxIzcnBjM0ISUnIDE2FQ8PBwMOVlxCVVVUV1JVAlNT1; BNC-Location=CN; changeBasisTimeZone=; lang=zh-CN; BNC_FV_KEY_T=101-EKZwSyXC8tmd5V0C3eRZeZ%2FWDN2vYFAIfDU7TTU3ingBpNcKB7vzsBVkzbl1jUfOBXf5%2FDhjvCwUG%2BVuLYKzdg%3D%3D-Jtwd%2Fqc20gMbm6EsrXY6kQ%3D%3D-c5; BNC_FV_KEY_EXPIRE=1763369050913; r20t=web.A8D7686F4CAC8E570053258AFF72D1EC; r30t=1; cr00=09578BE18A284B90BF74D68F9731F407; d1og=web.95931232.80A159E8C62B5D26A766AE0C3451DCCF; r2o1=web.95931232.709FC30064EFE6C6D0474B23EF4EFC41; f30l=web.95931232.D17BCA7D6364C1E75EE50AE0D00AD4BE; currentAccount=; logined=y; OptanonConsent=isGpcEnabled=0&datestamp=Mon+Nov+17+2025+10%3A48%3A59+GMT%2B0800+(China+Standard+Time)&version=202506.1.0&browserGpcFlag=0&isIABGlobal=false&hosts=&consentId=a36bdd5c-f87c-4445-8812-5c4207d57a3e&interactionCount=2&isAnonUser=1&landingPath=NotLandingPage&groups=C0001%3A1%2CC0003%3A0%2CC0004%3A0%2CC0002%3A0&AwaitingReconsent=false&intType=2&geolocation=US%3BCA; sensorsdata2015jssdkcross=%7B%22distinct_id%22%3A%2295931232%22%2C%22first_id%22%3A%221931f1dd2f1243-09b437e7d6fbdb-16525637-2007040-1931f1dd2f2136e%22%2C%22props%22%3A%7B%22%24latest_traffic_source_type%22%3A%22%E7%9B%B4%E6%8E%A5%E6%B5%81%E9%87%8F%22%2C%22%24latest_search_keyword%22%3A%22%E6%9C%AA%E5%8F%96%E5%88%B0%E5%80%BC_%E7%9B%B4%E6%8E%A5%E6%89%93%E5%BC%80%22%2C%22%24latest_referrer%22%3A%22%22%7D%2C%22identities%22%3A%22eyIkaWRlbnRpdHlfY29va2llX2lkIjoiMTkzMWYxZGQyZjEyNDMtMDliNDM3ZTdkNmZiZGItMTY1MjU2MzctMjAwNzA0MC0xOTMxZjFkZDJmMjEzNmUiLCIkaWRlbnRpdHlfbG9naW5faWQiOiI5NTkzMTIzMiJ9%22%2C%22history_login_id%22%3A%7B%22name%22%3A%22%24identity_login_id%22%2C%22value%22%3A%2295931232%22%7D%2C%22%24device_id%22%3A%22196017df89b8d5-0d47c74067621d8-1b525636-2073600-196017df89c11e8%22%7D
+dnt: 1
+if-modified-since: Tue, 18 Nov 2025 06:15:26 GMT
+priority: u=0, i
+sec-ch-ua: "Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"
+sec-ch-ua-mobile: ?0
+sec-ch-ua-platform: "macOS"
+sec-fetch-dest: document
+sec-fetch-mode: navigate
+sec-fetch-site: none
+sec-fetch-user: ?1
+upgrade-insecure-requests: 1
+user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36
+
