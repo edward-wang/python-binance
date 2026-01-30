@@ -27,7 +27,7 @@ Returns
 .. code-block:: python
 
     {
-        "status": 0,        # 0: normal，1：system maintenance
+        "status": 0,        # 0: normal, 1:system maintenance
         "msg": "normal"     # normal or System maintenance.
     }
 
