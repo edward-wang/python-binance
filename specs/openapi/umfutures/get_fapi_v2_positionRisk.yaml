@@ -1,0 +1,106 @@
+components:
+    schemas:
+        APIError:
+            description: binance API error
+            properties:
+                code:
+                    type: integer
+                msg:
+                    type: string
+            type: object
+        GetPositionRiskV2Resp:
+            example: '[ { "entryPrice": "0.00000", "breakEvenPrice": "0.0", "marginType": "isolated", "isAutoAddMargin": "false", "isolatedMargin": "0.00000000", "leverage": "10", "liquidationPrice": "0", "markPrice": "6679.50671178", "maxNotionalValue": "20000000", "positionAmt": "0.000", "notional": "0", "isolatedWallet": "0", "symbol": "BTCUSDT", "unRealizedProfit": "0.00000000", "positionSide": "BOTH", "updateTime": 0 } ]'
+            items:
+                $ref: '#/components/schemas/GetPositionRiskV2RespItem'
+            type: array
+        GetPositionRiskV2RespItem:
+            properties:
+                breakEvenPrice:
+                    type: string
+                entryPrice:
+                    type: string
+                isAutoAddMargin:
+                    type: string
+                isolatedMargin:
+                    type: string
+                isolatedWallet:
+                    type: string
+                leverage:
+                    type: string
+                liquidationPrice:
+                    type: string
+                marginType:
+                    type: string
+                markPrice:
+                    type: string
+                maxNotionalValue:
+                    type: string
+                notional:
+                    type: string
+                positionAmt:
+                    type: string
+                positionSide:
+                    type: string
+                symbol:
+                    type: string
+                unRealizedProfit:
+                    type: string
+                updateTime:
+                    format: int64
+                    type: integer
+            type: object
+    securitySchemes:
+        ApiKey:
+            in: header
+            name: X-MBX-APIKEY
+            type: apiKey
+info:
+    title: ""
+    version: ""
+openapi: ""
+paths:
+    /fapi/v2/positionRisk:
+        get:
+            description: Get current position information.
+            operationId: GetPositionRiskV2
+            parameters:
+                - in: query
+                  name: symbol
+                  schema:
+                    default: ""
+                    type: string
+                - in: query
+                  name: recvWindow
+                  schema:
+                    format: int64
+                    type: integer
+                - in: query
+                  name: timestamp
+                  required: true
+                  schema:
+                    format: int64
+                    type: integer
+            responses:
+                4XX:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/APIError'
+                    description: Client Error
+                5XX:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/APIError'
+                    description: Server Error
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetPositionRiskV2Resp'
+                    description: Successful operation
+            security:
+                - ApiKey: []
+            summary: Position Information V2 (USER_DATA)
+            tags:
+                - Futures

@@ -1,0 +1,99 @@
+components:
+    schemas:
+        APIError:
+            description: binance API error
+            properties:
+                code:
+                    type: integer
+                msg:
+                    type: string
+            type: object
+        SpotGetAggTradesV3RespItem:
+            properties:
+                M:
+                    type: boolean
+                T:
+                    type: integer
+                    format: int64
+                a:
+                    type: integer
+                    format: int64
+                f:
+                    type: integer
+                    format: int64
+                l:
+                    type: integer
+                    format: int64
+                m:
+                    type: boolean
+                p:
+                    type: string
+                q:
+                    type: string
+            type: object
+info:
+    title: ""
+    version: ""
+openapi: ""
+paths:
+    /api/v3/aggTrades:
+        get:
+            description: Get compressed, aggregate trades. Trades that fill at the time, from the same taker order, with the same price will have the quantity aggregated.
+            operationId: GetAggTradesV3
+            parameters:
+                - in: query
+                  name: symbol
+                  required: true
+                  schema:
+                    default: ""
+                    type: string
+                - description: ID to get aggregate trades from INCLUSIVE.
+                  in: query
+                  name: fromId
+                  schema:
+                    format: int64
+                    type: integer
+                - description: Timestamp in ms to get aggregate trades from INCLUSIVE.
+                  in: query
+                  name: startTime
+                  schema:
+                    format: int64
+                    type: integer
+                - description: Timestamp in ms to get aggregate trades until INCLUSIVE.
+                  in: query
+                  name: endTime
+                  schema:
+                    format: int64
+                    type: integer
+                - description: Default 500; max 1000.
+                  in: query
+                  name: limit
+                  schema:
+                    default: 500
+                    maximum: 1000
+                    type: integer
+            responses:
+                4XX:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/APIError'
+                    description: Client Error
+                5XX:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/APIError'
+                    description: Server Error
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                example: '[ { "a": 26129,          "p": "0.01633102",   "q": "4.70443515",   "f": 27781,          "l": 27781,          "T": 1498793709153,  "m": true,           "M": true            } ]'
+                                items:
+                                    $ref: '#/components/schemas/SpotGetAggTradesV3RespItem'
+                                type: array
+                    description: Successful operation
+            summary: Compressed/Aggregate trades list
+            tags:
+                - Spot Trading

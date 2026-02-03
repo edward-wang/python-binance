@@ -1,0 +1,266 @@
+components:
+    schemas:
+        APIError:
+            description: binance API error
+            properties:
+                code:
+                    type: integer
+                msg:
+                    type: string
+            type: object
+        CreateOrderListOtocoV3Req:
+            properties:
+                listClientOrderId:
+                    default: ""
+                    type: string
+                newOrderRespType:
+                    default: ""
+                    type: string
+                pendingAboveClientOrderId:
+                    default: ""
+                    type: string
+                pendingAboveIcebergQty:
+                    default: ""
+                    type: string
+                pendingAbovePrice:
+                    default: ""
+                    type: string
+                pendingAboveStopPrice:
+                    default: ""
+                    type: string
+                pendingAboveStrategyId:
+                    format: int64
+                    type: integer
+                pendingAboveStrategyType:
+                    type: integer
+                pendingAboveTimeInForce:
+                    default: ""
+                    type: string
+                pendingAboveTrailingDelta:
+                    default: ""
+                    type: string
+                pendingAboveType:
+                    default: ""
+                    enum:
+                        - STOP_LOSS_LIMIT
+                        - STOP_LOSS
+                        - LIMIT_MAKER
+                        - TAKE_PROFIT
+                        - TAKE_PROFIT_LIMIT
+                    type: string
+                pendingBelowClientOrderId:
+                    default: ""
+                    type: string
+                pendingBelowIcebergQty:
+                    default: ""
+                    type: string
+                pendingBelowPrice:
+                    default: ""
+                    type: string
+                pendingBelowStopPrice:
+                    default: ""
+                    type: string
+                pendingBelowStrategyId:
+                    format: int64
+                    type: integer
+                pendingBelowStrategyType:
+                    type: integer
+                pendingBelowTimeInForce:
+                    default: ""
+                    type: string
+                pendingBelowTrailingDelta:
+                    default: ""
+                    type: string
+                pendingBelowType:
+                    default: ""
+                    enum:
+                        - STOP_LOSS
+                        - STOP_LOSS_LIMIT
+                        - TAKE_PROFIT
+                        - TAKE_PROFIT_LIMIT
+                    type: string
+                pendingQuantity:
+                    default: ""
+                    type: string
+                pendingSide:
+                    default: ""
+                    type: string
+                recvWindow:
+                    format: int64
+                    type: integer
+                selfTradePreventionMode:
+                    default: ""
+                    type: string
+                symbol:
+                    default: ""
+                    type: string
+                timestamp:
+                    format: int64
+                    type: integer
+                workingClientOrderId:
+                    default: ""
+                    type: string
+                workingIcebergQty:
+                    default: ""
+                    type: string
+                workingPrice:
+                    default: ""
+                    type: string
+                workingQuantity:
+                    default: ""
+                    type: string
+                workingSide:
+                    default: ""
+                    type: string
+                workingStrategyId:
+                    format: int64
+                    type: integer
+                workingStrategyType:
+                    type: integer
+                workingTimeInForce:
+                    default: ""
+                    type: string
+                workingType:
+                    default: ""
+                    enum:
+                        - LIMIT
+                        - LIMIT_MAKER
+                    type: string
+            required:
+                - symbol
+                - workingType
+                - workingSide
+                - workingPrice
+                - workingQuantity
+                - pendingSide
+                - pendingQuantity
+                - pendingAboveType
+                - timestamp
+            type: object
+        CreateOrderListOtocoV3Resp:
+            example: '{ "orderListId": 1, "contingencyType": "OTO", "listStatusType": "EXEC_STARTED", "listOrderStatus": "EXECUTING", "listClientOrderId": "RumwQpBaDctlUu5jyG5rs0", "transactionTime": 1712291372842, "symbol": "ABCDEF", "orders": [ { "symbol": "LTCBTC", "orderId": 6, "clientOrderId": "fM9Y4m23IFJVCQmIrlUmMK" }, { "symbol": "LTCBTC", "orderId": 7, "clientOrderId": "6pcQbFIzTXGZQ1e2MkGDq4" }, { "symbol": "LTCBTC", "orderId": 8, "clientOrderId": "r4JMv9cwAYYUwwBZfbussx" } ], "orderReports": [ { "symbol": "LTCBTC", "orderId": 6, "orderListId": 1, "clientOrderId": "fM9Y4m23IFJVCQmIrlUmMK", "transactTime": 1712291372842, "price": "1.00000000", "origQty": "1.00000000", "executedQty": "0.00000000", "origQuoteOrderQty": "0.000000", "cummulativeQuoteQty": "0.00000000", "status": "NEW", "timeInForce": "GTC", "type": "LIMIT", "side": "SELL", "workingTime": 1712291372842, "selfTradePreventionMode": "NONE" }, { "symbol": "LTCBTC", "orderId": 7, "orderListId": 1, "clientOrderId": "6pcQbFIzTXGZQ1e2MkGDq4", "transactTime": 1712291372842, "price": "1.00000000", "origQty": "5.00000000", "executedQty": "0.00000000", "origQuoteOrderQty": "0.000000", "cummulativeQuoteQty": "0.00000000", "status": "PENDING_NEW", "timeInForce": "IOC", "type": "STOP_LOSS_LIMIT", "side": "BUY", "stopPrice": "6.00000000", "workingTime": -1, "selfTradePreventionMode": "NONE" }, { "symbol": "LTCBTC", "orderId": 8, "orderListId": 1, "clientOrderId": "r4JMv9cwAYYUwwBZfbussx", "transactTime": 1712291372842, "price": "3.00000000", "origQty": "5.00000000", "executedQty": "0.00000000", "origQuoteOrderQty": "0.000000", "cummulativeQuoteQty": "0.00000000", "status": "PENDING_NEW", "timeInForce": "GTC", "type": "LIMIT_MAKER", "side": "BUY", "workingTime": -1, "selfTradePreventionMode": "NONE" } ] }'
+            properties:
+                contingencyType:
+                    type: string
+                listClientOrderId:
+                    type: string
+                listOrderStatus:
+                    type: string
+                listStatusType:
+                    type: string
+                orderListId:
+                    format: int64
+                    type: integer
+                orderReports:
+                    items:
+                        properties:
+                            clientOrderId:
+                                type: string
+                            cummulativeQuoteQty:
+                                type: string
+                            executedQty:
+                                type: string
+                            orderId:
+                                format: int64
+                                type: integer
+                            orderListId:
+                                format: int64
+                                type: integer
+                            origQty:
+                                type: string
+                            origQuoteOrderQty:
+                                type: string
+                            price:
+                                type: string
+                            selfTradePreventionMode:
+                                type: string
+                            side:
+                                type: string
+                            status:
+                                type: string
+                            symbol:
+                                type: string
+                            timeInForce:
+                                type: string
+                            transactTime:
+                                format: int64
+                                type: integer
+                            type:
+                                type: string
+                            workingTime:
+                                format: int64
+                                type: integer
+                        type: object
+                    type: array
+                orders:
+                    items:
+                        properties:
+                            clientOrderId:
+                                type: string
+                            orderId:
+                                format: int64
+                                type: integer
+                            symbol:
+                                type: string
+                        type: object
+                    type: array
+                symbol:
+                    type: string
+                transactionTime:
+                    format: int64
+                    type: integer
+            type: object
+    securitySchemes:
+        ApiKey:
+            in: header
+            name: X-MBX-APIKEY
+            type: apiKey
+info:
+    title: ""
+    version: ""
+openapi: ""
+paths:
+    /api/v3/orderList/otoco:
+        post:
+            description: |-
+                Place an OTOCO.
+                - An OTOCO (One-Triggers-One-Cancels-the-Other) is an order list comprised of 3 orders.
+                - The first order is called the working order and must be LIMIT or LIMIT_MAKER. Initially, only the working order goes on the order book.
+
+                The behavior of the working order is the same as the OTO.
+                - OTOCO has 2 pending orders (pending above and pending below), forming an OCO pair. The pending orders are only placed on the order book when the working order gets fully filled.
+
+                The rules of the pending above and pending below follow the same rules as the Order list OCO.
+                - OTOCOs add 3 orders against the unfilled order count, EXCHANGE_MAX_NUM_ORDERS filter, and MAX_NUM_ORDERS filter.
+            operationId: CreateOrderListOtocoV3
+            requestBody:
+                content:
+                    application/x-www-form-urlencoded:
+                        schema:
+                            $ref: '#/components/schemas/CreateOrderListOtocoV3Req'
+                description: The request body for CreateOrderListOtocoV3
+                required: true
+            responses:
+                4XX:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/APIError'
+                    description: Client Error
+                5XX:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/APIError'
+                    description: Server Error
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CreateOrderListOtocoV3Resp'
+                    description: Successful operation
+            security:
+                - ApiKey: []
+            summary: New Order list - OTOCO (TRADE)
+            tags:
+                - Spot Trading

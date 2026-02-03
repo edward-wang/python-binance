@@ -1,0 +1,261 @@
+components:
+    schemas:
+        APIError:
+            description: binance API error
+            properties:
+                code:
+                    type: integer
+                msg:
+                    type: string
+            type: object
+        SpotCreateOrderCancelReplaceV3Req:
+            properties:
+                cancelNewClientOrderId:
+                    default: ""
+                    type: string
+                cancelOrderId:
+                    format: int64
+                    type: integer
+                cancelOrigClientOrderId:
+                    default: ""
+                    type: string
+                cancelReplaceMode:
+                    default: ""
+                    type: string
+                cancelRestrictions:
+                    default: ""
+                    type: string
+                icebergQty:
+                    default: ""
+                    type: string
+                newClientOrderId:
+                    default: ""
+                    type: string
+                newOrderRespType:
+                    default: ""
+                    type: string
+                orderRateLimitExceededMode:
+                    default: ""
+                    type: string
+                price:
+                    default: ""
+                    type: string
+                quantity:
+                    default: ""
+                    type: string
+                quoteOrderQty:
+                    default: ""
+                    type: string
+                recvWindow:
+                    format: int64
+                    type: integer
+                selfTradePreventionMode:
+                    default: ""
+                    type: string
+                side:
+                    default: ""
+                    type: string
+                stopPrice:
+                    default: ""
+                    type: string
+                strategyId:
+                    format: int64
+                    type: integer
+                strategyType:
+                    type: integer
+                symbol:
+                    default: ""
+                    type: string
+                timeInForce:
+                    default: ""
+                    type: string
+                timestamp:
+                    format: int64
+                    type: integer
+                trailingDelta:
+                    format: int64
+                    type: integer
+                type:
+                    default: ""
+                    type: string
+            required:
+                - symbol
+                - side
+                - type
+                - cancelReplaceMode
+                - timestamp
+            type: object
+        SpotCreateOrderCancelReplaceV3Resp:
+            oneOf:
+                - $ref: '#/components/schemas/SpotCreateOrderCancelReplaceV3FailResp'
+                - $ref: '#/components/schemas/SpotCreateOrderCancelReplaceV3Data'
+        SpotCreateOrderCancelReplaceV3FailResp:
+            type: object
+            properties:
+                code:
+                    type: integer
+                msg:
+                    type: string
+                data:
+                    $ref: '#/components/schemas/SpotCreateOrderCancelReplaceV3Data'
+        SpotCreateOrderCancelReplaceV3Data:
+            example: '{ "cancelResult": "SUCCESS", "newOrderResult": "SUCCESS", "cancelResponse": { "symbol": "BTCUSDT", "origClientOrderId": "DnLo3vTAQcjha43lAZhZ0y", "orderId": 9, "orderListId": -1, "clientOrderId": "osxN3JXAtJvKvCqGeMWMVR", "transactTime": 1684804350068, "price": "0.01000000", "origQty": "0.000100", "executedQty": "0.00000000", "origQuoteOrderQty": "0.000000", "cummulativeQuoteQty": "0.00000000", "status": "CANCELED", "timeInForce": "GTC", "type": "LIMIT", "side": "SELL", "selfTradePreventionMode": "NONE" }, "newOrderResponse": { "symbol": "BTCUSDT", "orderId": 10, "orderListId": -1, "clientOrderId": "wOceeeOzNORyLiQfw7jd8S", "transactTime": 1652928801803, "price": "0.02000000", "origQty": "0.040000", "executedQty": "0.00000000", "cummulativeQuoteQty": "0.00000000", "origQuoteOrderQty": "0.000000", "status": "NEW", "timeInForce": "GTC", "type": "LIMIT", "side": "BUY", "workingTime": 1669277163808, "fills": [], "selfTradePreventionMode": "NONE" } }'
+            properties:
+                cancelResponse:
+                    oneOf:
+                        - $ref: '#/components/schemas/APIError'
+                        - $ref: '#/components/schemas/SpotCreateOrderCancelReplaceV3CancelResp'
+                cancelResult:
+                    type: string
+                newOrderResponse:
+                    oneOf:
+                        - $ref: '#/components/schemas/APIError'
+                        - $ref: '#/components/schemas/SpotCreateOrderCancelReplaceV3NewOrderResp'
+                newOrderResult:
+                    type: string
+            type: object
+        SpotCreateOrderCancelReplaceV3CancelResp:
+            properties:
+                clientOrderId:
+                    type: string
+                cummulativeQuoteQty:
+                    type: string
+                executedQty:
+                    type: string
+                orderId:
+                    format: int64
+                    type: integer
+                orderListId:
+                    format: int64
+                    type: integer
+                origClientOrderId:
+                    type: string
+                origQty:
+                    type: string
+                origQuoteOrderQty:
+                    type: string
+                price:
+                    type: string
+                selfTradePreventionMode:
+                    type: string
+                side:
+                    type: string
+                status:
+                    type: string
+                symbol:
+                    type: string
+                timeInForce:
+                    type: string
+                transactTime:
+                    format: int64
+                    type: integer
+                type:
+                    type: string
+            type: object
+        SpotCreateOrderCancelReplaceV3NewOrderResp:
+            properties:
+                clientOrderId:
+                    type: string
+                cummulativeQuoteQty:
+                    type: string
+                executedQty:
+                    type: string
+                fills:
+                    type: array
+                    items:
+                        type: object
+                        properties:
+                            commission:
+                                type: string
+                            commissionAsset:
+                                type: string
+                            price:
+                                type: string
+                            qty:
+                                type: string
+                            tradeId:
+                                format: int64
+                                type: integer
+                            allocId:
+                                format: int64
+                            matchType:
+                                type: string
+                orderId:
+                    format: int64
+                    type: integer
+                orderListId:
+                    format: int64
+                    type: integer
+                origQty:
+                    type: string
+                origQuoteOrderQty:
+                    type: string
+                price:
+                    type: string
+                selfTradePreventionMode:
+                    type: string
+                side:
+                    type: string
+                status:
+                    type: string
+                symbol:
+                    type: string
+                timeInForce:
+                    type: string
+                transactTime:
+                    format: int64
+                    type: integer
+                type:
+                    type: string
+                workingTime:
+                    format: int64
+                    type: integer
+            type: object
+    securitySchemes:
+        ApiKey:
+            in: header
+            name: X-MBX-APIKEY
+            type: apiKey
+info:
+    title: ""
+    version: ""
+openapi: ""
+paths:
+    /api/v3/order/cancelReplace:
+        post:
+            description: |-
+                Cancels an existing order and places a new order on the same symbol.
+                Filters and Order Count are evaluated before the processing of the cancellation and order placement occurs.
+                A new order that was not attempted (i.e. when newOrderResult: NOT_ATTEMPTED ), will still increase the order count by 1.
+            operationId: CreateOrderCancelReplaceV3
+            requestBody:
+                content:
+                    application/x-www-form-urlencoded:
+                        schema:
+                            $ref: '#/components/schemas/SpotCreateOrderCancelReplaceV3Req'
+                description: The request body for SpotCreateOrderCancelReplaceV3
+                required: true
+            responses:
+                4XX:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/APIError'
+                    description: Client Error
+                5XX:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/APIError'
+                    description: Server Error
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/SpotCreateOrderCancelReplaceV3Resp'
+                    description: Successful operation
+            security:
+                - ApiKey: []
+            summary: Cancel an Existing Order and Send a New Order (TRADE)
+            tags:
+                - Spot Trading

@@ -1,0 +1,89 @@
+components:
+    schemas:
+        APIError:
+            description: binance API error
+            properties:
+                code:
+                    type: integer
+                msg:
+                    type: string
+            type: object
+        GetFuturesDataOpenInterestHistResp:
+            example: '[ { "symbol":"BTCUSDT", "sumOpenInterest":"20403.63700000",   "sumOpenInterestValue": "150570784.07809979",    "timestamp":"1583127900000" }, { "symbol":"BTCUSDT", "sumOpenInterest":"20401.36700000", "sumOpenInterestValue":"149940752.14464448", "timestamp":"1583128200000" } ]'
+            items:
+                $ref: '#/components/schemas/GetFuturesDataOpenInterestHistRespItem'
+            type: array
+        GetFuturesDataOpenInterestHistRespItem:
+            properties:
+                sumOpenInterest:
+                    type: string
+                sumOpenInterestValue:
+                    type: string
+                symbol:
+                    type: string
+                timestamp:
+                    type: string
+            type: object
+info:
+    title: ""
+    version: ""
+openapi: ""
+paths:
+    /futures/data/openInterestHist:
+        get:
+            description: Open Interest Statistics
+            operationId: GetFuturesDataOpenInterestHist
+            parameters:
+                - in: query
+                  name: symbol
+                  required: true
+                  schema:
+                    default: ""
+                    type: string
+                - description: '&#34;5m&#34;,&#34;15m&#34;,&#34;30m&#34;,&#34;1h&#34;,&#34;2h&#34;,&#34;4h&#34;,&#34;6h&#34;,&#34;12h&#34;,&#34;1d&#34;'
+                  in: query
+                  name: period
+                  required: true
+                  schema:
+                    default: ""
+                    type: string
+                - description: default 30, max 500
+                  in: query
+                  name: limit
+                  schema:
+                    default: 30
+                    format: int64
+                    maximum: 500
+                    type: integer
+                - in: query
+                  name: startTime
+                  schema:
+                    format: int64
+                    type: integer
+                - in: query
+                  name: endTime
+                  schema:
+                    format: int64
+                    type: integer
+            responses:
+                4XX:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/APIError'
+                    description: Client Error
+                5XX:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/APIError'
+                    description: Server Error
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetFuturesDataOpenInterestHistResp'
+                    description: Successful operation
+            summary: Open Interest Statistics
+            tags:
+                - Futures

@@ -1,0 +1,281 @@
+components:
+    schemas:
+        APIError:
+            description: binance API error
+            properties:
+                code:
+                    type: integer
+                msg:
+                    type: string
+            type: object
+        SpotSymbolFilter:
+            properties:
+                filterType:
+                    type: string
+                # Price filter
+                minPrice:
+                    type: string
+                maxPrice:
+                    type: string
+                tickSize:
+                    type: string
+                # Percent price filter
+                multiplierUp:
+                    type: string
+                multiplierDown:
+                    type: string
+                avgPriceMins:
+                    type: integer
+                # Percent price by side filter
+                bidMultiplierUp:
+                    type: string
+                bidMultiplierDown:
+                    type: string
+                askMultiplierUp:
+                    type: string
+                askMultiplierDown:
+                    type: string
+                # avgPriceMins:
+                #     type: integer
+                # Lot size filter
+                minQty:
+                    type: string
+                maxQty:
+                    type: string
+                stepSize:
+                    type: string
+                # Min Notional filter
+                minNotionalValue:
+                    type: string
+                applyToMarket:
+                    type: boolean
+                # avgPriceMins:
+                #     type: integer
+                # Notional filter
+                # minNotionalValue:
+                #     type: string
+                applyMinToMarket:
+                    type: boolean
+                maxNotionalValue:
+                    type: string
+                applyMaxToMarket:
+                    type: boolean
+                # avgPriceMins:
+                #     type: integer
+                # Iceberg parts filter
+                limit:
+                    type: integer
+                # Max number of orders filter
+                maxNumOrders:
+                    type: integer
+                # Max number of algo orders filter
+                maxNumAlgoOrders:
+                    type: integer
+                # Max number of iceberg orders filter
+                maxNumIcebergOrders:
+                    type: integer
+                # Max position filter
+                maxPosition:
+                    type: string
+                # Trailing delta filter
+                minTrailingAboveDelta:
+                    type: integer
+                maxTrailingAboveDelta:
+                    type: integer
+                minTrailingBelowDelta:
+                    type: integer
+                maxTrailingBelowDelta:
+                    type: integer
+            type: object
+        SpotExchangeFilterExchangeMaxNumOrder:
+            properties:
+                filterType:
+                    type: string
+                maxNumOrders:
+                    type: integer
+            type: object
+        SpotExchangeFilterExchangeMaxNumAlgoOrders:
+            properties:
+                filterType:
+                    type: string
+                maxNumAlgoOrders:
+                    type: integer
+            type: object
+        SpotExchangeFilterExchangeMaxNumIcebergOrders:
+            properties:
+                filterType:
+                    type: string
+                maxNumIcebergOrders:
+                    type: integer
+            type: object
+        SpotRateLimit:
+            properties:
+                rateLimitType:
+                    type: string
+                interval:
+                    type: string
+                intervalNum:
+                    type: integer
+                limit:
+                    type: integer
+            type: object
+        SpotGetExchangeInfoV3Resp:
+            example: '{ "timezone": "UTC", "serverTime": 1565246363776, "rateLimits": [ { } ], "exchangeFilters": [ ], "symbols": [ { "symbol": "ETHBTC", "status": "TRADING", "baseAsset": "ETH", "baseAssetPrecision": 8, "quoteAsset": "BTC", "quotePrecision": 8,  "quoteAssetPrecision": 8, "baseCommissionPrecision": 8, "quoteCommissionPrecision": 8, "orderTypes": [ "LIMIT", "LIMIT_MAKER", "MARKET", "STOP_LOSS", "STOP_LOSS_LIMIT", "TAKE_PROFIT", "TAKE_PROFIT_LIMIT" ], "icebergAllowed": true, "ocoAllowed": true, "otoAllowed": true, "quoteOrderQtyMarketAllowed": true, "allowTrailingStop": false, "cancelReplaceAllowed":false, "isSpotTradingAllowed": true, "isMarginTradingAllowed": true, "filters": [ ], "permissions": [], "permissionSets": [ [ "SPOT", "MARGIN" ] ], "defaultSelfTradePreventionMode": "NONE", "allowedSelfTradePreventionModes": [ "NONE" ] } ], "sors": [ { "baseAsset": "BTC", "symbols": [ "BTCUSDT", "BTCUSDC" ] } ] }'
+            properties:
+                exchangeFilters:
+                    type: array
+                    items:
+                        oneOf:
+                            - $ref: '#/components/schemas/SpotExchangeFilterExchangeMaxNumOrder'
+                            - $ref: '#/components/schemas/SpotExchangeFilterExchangeMaxNumAlgoOrders'
+                            - $ref: '#/components/schemas/SpotExchangeFilterExchangeMaxNumIcebergOrders'
+                rateLimits:
+                    items:
+                        $ref: '#/components/schemas/SpotRateLimit'
+                    type: array
+                serverTime:
+                    format: int64
+                    type: integer
+                sors:
+                    items:
+                        properties:
+                            baseAsset:
+                                type: string
+                            symbols:
+                                items:
+                                    type: string
+                                type: array
+                        type: object
+                    type: array
+                symbols:
+                    items:
+                        properties:
+                            allowTrailingStop:
+                                type: boolean
+                            allowedSelfTradePreventionModes:
+                                items:
+                                    type: string
+                                type: array
+                            baseAsset:
+                                type: string
+                            baseAssetPrecision:
+                                type: integer
+                            baseCommissionPrecision:
+                                type: integer
+                            cancelReplaceAllowed:
+                                type: boolean
+                            defaultSelfTradePreventionMode:
+                                type: string
+                            filters:
+                                type: array
+                                items:
+                                    $ref: '#/components/schemas/SpotSymbolFilter'
+                            icebergAllowed:
+                                type: boolean
+                            isMarginTradingAllowed:
+                                type: boolean
+                            isSpotTradingAllowed:
+                                type: boolean
+                            ocoAllowed:
+                                type: boolean
+                            orderTypes:
+                                items:
+                                    type: string
+                                type: array
+                            otoAllowed:
+                                type: boolean
+                            permissionSets:
+                                items:
+                                    items:
+                                        type: string
+                                    type: array
+                                type: array
+                            permissions:
+                                items:
+                                    type: string
+                                type: array
+                            quoteAsset:
+                                type: string
+                            quoteAssetPrecision:
+                                type: integer
+                            quoteCommissionPrecision:
+                                type: integer
+                            quoteOrderQtyMarketAllowed:
+                                type: boolean
+                            quotePrecision:
+                                type: integer
+                            status:
+                                type: string
+                            symbol:
+                                type: string
+                        type: object
+                    type: array
+                timezone:
+                    type: string
+            type: object
+info:
+    title: ""
+    version: ""
+openapi: ""
+paths:
+    /api/v3/exchangeInfo:
+        get:
+            description: Current exchange trading rules and symbol information
+            operationId: GetExchangeInfoV3
+            parameters:
+                - description: 'Example: curl -X GET &#34;<a href="https://api.binance.com/api/v3/exchangeInfo?symbol=BNBBTC" target="_blank" rel="noopener noreferrer">https://api.binance.com/api/v3/exchangeInfo?symbol=BNBBTC</a>&#34;'
+                  in: query
+                  name: symbol
+                  schema:
+                    default: ""
+                    type: string
+                - description: 'Examples: curl -X GET &#34;<a href="https://api.binance.com/api/v3/exchangeInfo?symbols=%5B%22BNBBTC%22,%22BTCUSDT%22%5D" target="_blank" rel="noopener noreferrer">https://api.binance.com/api/v3/exchangeInfo?symbols=%5B%22BNBBTC%22,%22BTCUSDT%22%5D</a>&#34; <br/> or <br/> curl -g -X  GET &#39;<a href="https://api.binance.com/api/v3/exchangeInfo?symbols=%5B%22BTCUSDT%22,%22BNBBTC" target="_blank" rel="noopener noreferrer">https://api.binance.com/api/v3/exchangeInfo?symbols=[&#34;BTCUSDT&#34;,&#34;BNBBTC</a>&#34;]&#39;'
+                  in: query
+                  name: symbols
+                  schema:
+                    items:
+                        type: string
+                    type: array
+                - description: 'Examples: curl -X GET &#34;<a href="https://api.binance.com/api/v3/exchangeInfo?permissions=SPOT" target="_blank" rel="noopener noreferrer">https://api.binance.com/api/v3/exchangeInfo?permissions=SPOT</a>&#34; <br/> or <br/> curl -X GET &#34;<a href="https://api.binance.com/api/v3/exchangeInfo?permissions=%5B%22MARGIN%22%2C%22LEVERAGED%22%5D" target="_blank" rel="noopener noreferrer">https://api.binance.com/api/v3/exchangeInfo?permissions=%5B%22MARGIN%22%2C%22LEVERAGED%22%5D</a>&#34; <br/> or <br/> curl -g -X GET &#39;<a href="https://api.binance.com/api/v3/exchangeInfo?permissions=%5B%22MARGIN%22,%22LEVERAGED" target="_blank" rel="noopener noreferrer">https://api.binance.com/api/v3/exchangeInfo?permissions=[&#34;MARGIN&#34;,&#34;LEVERAGED</a>&#34;]&#39;'
+                  in: query
+                  name: permissions
+                  schema:
+                    default: ""
+                    type: string
+                - description: Controls whether the content of the `permissionSets` field is populated or not. Defaults to `true`
+                  in: query
+                  name: showPermissionSets
+                  schema:
+                    type: boolean
+                - description: 'Filters symbols that have this `tradingStatus`. Valid values: `TRADING`, `HALT`, `BREAK` <br/> Cannot be used in combination with `symbols` or `symbol`.'
+                  in: query
+                  name: symbolStatus
+                  schema:
+                    default: ""
+                    enum:
+                        - TRADING
+                        - HALT
+                        - BREAK
+                    type: string
+            responses:
+                4XX:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/APIError'
+                    description: Client Error
+                5XX:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/APIError'
+                    description: Server Error
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/SpotGetExchangeInfoV3Resp'
+                    description: Successful operation
+            summary: Exchange information
+            tags:
+                - Spot Trading

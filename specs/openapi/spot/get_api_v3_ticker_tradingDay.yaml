@@ -1,0 +1,115 @@
+components:
+    schemas:
+        APIError:
+            description: binance API error
+            properties:
+                code:
+                    type: integer
+                msg:
+                    type: string
+            type: object
+        SpotGetTickerTradingDayV3Resp:
+            oneOf:
+                - type: array
+                  items:
+                    $ref: '#/components/schemas/SpotGetTickerTradingDayV3RespItem'
+                - $ref: '#/components/schemas/SpotGetTickerTradingDayV3RespItem'
+        SpotGetTickerTradingDayV3RespItem:
+            example: '{ "symbol":             "BTCUSDT", "priceChange":        "-83.13000000",          "priceChangePercent": "-0.317",                "weightedAvgPrice":   "26234.58803036",        "openPrice":          "26304.80000000", "highPrice":          "26397.46000000", "lowPrice":           "26088.34000000", "lastPrice":          "26221.67000000", "volume":             "18495.35066000",        "quoteVolume":        "485217905.04210480",    "openTime":           1695686400000, "closeTime":          1695772799999, "firstId":            3220151555,              "lastId":             3220849281,              "count":              697727                   }'
+            properties:
+                closeTime:
+                    format: int64
+                    type: integer
+                count:
+                    type: integer
+                firstId:
+                    format: int64
+                    type: integer
+                highPrice:
+                    type: string
+                lastId:
+                    format: int64
+                    type: integer
+                lastPrice:
+                    type: string
+                lowPrice:
+                    type: string
+                openPrice:
+                    type: string
+                openTime:
+                    format: int64
+                    type: integer
+                priceChange:
+                    type: string
+                priceChangePercent:
+                    type: string
+                quoteVolume:
+                    type: string
+                symbol:
+                    type: string
+                volume:
+                    type: string
+                weightedAvgPrice:
+                    type: string
+            type: object
+info:
+    title: ""
+    version: ""
+openapi: ""
+paths:
+    /api/v3/ticker/tradingDay:
+        get:
+            description: |-
+                Price change statistics for a trading day.
+                4 for each requested symbol.  The weight for this request will cap at 200 once the number of symbols in the request is more than 50.
+            operationId: GetTickerTradingDayV3
+            parameters:
+                - description: 'Either `symbol` or `symbols` must be provided <br/><br/> Examples of accepted format for the `symbols` parameter: <br/> [&#34;BTCUSDT&#34;,&#34;BNBUSDT&#34;] <br/>or <br/>%5B%22BTCUSDT%22,%22BNBUSDT%22%5D <br/><br/> The maximum number of `symbols` allowed in a request is 100.'
+                  in: query
+                  name: symbol
+                  schema:
+                    default: ""
+                    type: string
+                - description: 'Either `symbol` or `symbols` must be provided <br/><br/> Examples of accepted format for the `symbols` parameter: <br/> [&#34;BTCUSDT&#34;,&#34;BNBUSDT&#34;] <br/>or <br/>%5B%22BTCUSDT%22,%22BNBUSDT%22%5D <br/><br/> The maximum number of `symbols` allowed in a request is 100.'
+                  in: query
+                  name: symbols
+                  schema:
+                    default: ""
+                    type: string
+                - description: 'Default: 0 (UTC)'
+                  in: query
+                  name: timeZone
+                  schema:
+                    default: "0"
+                    type: string
+                - description: 'Supported values: `FULL` or `MINI`. <br/>If none provided, the default is `FULL`'
+                  in: query
+                  name: type
+                  schema:
+                    default: ""
+                    enum:
+                        - FULL
+                        - MINI
+                    type: string
+            responses:
+                4XX:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/APIError'
+                    description: Client Error
+                5XX:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/APIError'
+                    description: Server Error
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/SpotGetTickerTradingDayV3Resp'
+                    description: Successful operation
+            summary: Trading Day Ticker
+            tags:
+                - Spot Trading

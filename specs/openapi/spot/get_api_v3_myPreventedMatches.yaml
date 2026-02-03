@@ -1,0 +1,128 @@
+components:
+    schemas:
+        APIError:
+            description: binance API error
+            properties:
+                code:
+                    type: integer
+                msg:
+                    type: string
+            type: object
+        GetMyPreventedMatchesV3Resp:
+            example: '[ { "symbol": "BTCUSDT", "preventedMatchId": 1, "takerOrderId": 5, "makerSymbol": "BTCUSDT", "makerOrderId": 3, "tradeGroupId": 1, "selfTradePreventionMode": "EXPIRE_MAKER", "price": "1.100000", "makerPreventedQuantity": "1.300000", "transactTime": 1669101687094 } ]'
+            items:
+                $ref: '#/components/schemas/GetMyPreventedMatchesV3RespItem'
+            type: array
+        GetMyPreventedMatchesV3RespItem:
+            properties:
+                makerOrderId:
+                    format: int64
+                    type: integer
+                makerPreventedQuantity:
+                    type: string
+                makerSymbol:
+                    type: string
+                preventedMatchId:
+                    format: int64
+                    type: integer
+                price:
+                    type: string
+                selfTradePreventionMode:
+                    type: string
+                symbol:
+                    type: string
+                takerOrderId:
+                    format: int64
+                    type: integer
+                tradeGroupId:
+                    format: int64
+                    type: integer
+                transactTime:
+                    format: int64
+                    type: integer
+            type: object
+    securitySchemes:
+        ApiKey:
+            in: header
+            name: X-MBX-APIKEY
+            type: apiKey
+info:
+    title: ""
+    version: ""
+openapi: ""
+paths:
+    /api/v3/myPreventedMatches:
+        get:
+            description: |-
+                Displays the list of orders that were expired due to STP.
+                These are the combinations supported:
+                - symbol + preventedMatchId
+                - symbol + orderId
+                - symbol + orderId + fromPreventedMatchId (limit will default to 500)
+                - symbol + orderId + fromPreventedMatchId + limit
+            operationId: GetMyPreventedMatchesV3
+            parameters:
+                - in: query
+                  name: symbol
+                  required: true
+                  schema:
+                    default: ""
+                    type: string
+                - in: query
+                  name: preventedMatchId
+                  schema:
+                    format: int64
+                    type: integer
+                - in: query
+                  name: orderId
+                  schema:
+                    format: int64
+                    type: integer
+                - in: query
+                  name: fromPreventedMatchId
+                  schema:
+                    format: int64
+                    type: integer
+                - description: 'Default: `500`; Max: `1000`'
+                  in: query
+                  name: limit
+                  schema:
+                    default: 500
+                    maximum: 1000
+                    type: integer
+                - description: The value cannot be greater than `60000`
+                  in: query
+                  name: recvWindow
+                  schema:
+                    format: int64
+                    type: integer
+                - in: query
+                  name: timestamp
+                  required: true
+                  schema:
+                    format: int64
+                    type: integer
+            responses:
+                4XX:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/APIError'
+                    description: Client Error
+                5XX:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/APIError'
+                    description: Server Error
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetMyPreventedMatchesV3Resp'
+                    description: Successful operation
+            security:
+                - ApiKey: []
+            summary: Query Prevented Matches (USER_DATA)
+            tags:
+                - Spot Trading

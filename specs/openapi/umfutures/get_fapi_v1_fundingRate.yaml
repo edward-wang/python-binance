@@ -1,0 +1,83 @@
+components:
+    schemas:
+        APIError:
+            description: binance API error
+            properties:
+                code:
+                    type: integer
+                msg:
+                    type: string
+            type: object
+        GetFundingRateV1Resp:
+            example: '[ { "symbol": "BTCUSDT", "fundingRate": "-0.03750000", "fundingTime": 1570608000000, "markPrice": "34287.54619963"    }, { "symbol": "BTCUSDT", "fundingRate": "0.00010000", "fundingTime": 1570636800000, "markPrice": "34287.54619963" } ]'
+            items:
+                $ref: '#/components/schemas/GetFundingRateV1RespItem'
+            type: array
+        GetFundingRateV1RespItem:
+            properties:
+                fundingRate:
+                    type: string
+                fundingTime:
+                    format: int64
+                    type: integer
+                markPrice:
+                    type: string
+                symbol:
+                    type: string
+            type: object
+info:
+    title: ""
+    version: ""
+openapi: ""
+paths:
+    /fapi/v1/fundingRate:
+        get:
+            description: Get Funding Rate History
+            operationId: GetFundingRateV1
+            parameters:
+                - in: query
+                  name: symbol
+                  schema:
+                    default: ""
+                    type: string
+                - description: Timestamp in ms to get funding rate from INCLUSIVE.
+                  in: query
+                  name: startTime
+                  schema:
+                    format: int64
+                    type: integer
+                - description: Timestamp in ms to get funding rate  until INCLUSIVE.
+                  in: query
+                  name: endTime
+                  schema:
+                    format: int64
+                    type: integer
+                - description: Default 100; max 1000
+                  in: query
+                  name: limit
+                  schema:
+                    default: 100
+                    maximum: 1000
+                    type: integer
+            responses:
+                4XX:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/APIError'
+                    description: Client Error
+                5XX:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/APIError'
+                    description: Server Error
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetFundingRateV1Resp'
+                    description: Successful operation
+            summary: Get Funding Rate History
+            tags:
+                - Futures

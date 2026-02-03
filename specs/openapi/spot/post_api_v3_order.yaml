@@ -1,0 +1,169 @@
+components:
+    schemas:
+        APIError:
+            description: binance API error
+            properties:
+                code:
+                    type: integer
+                msg:
+                    type: string
+            type: object
+        SpotCreateOrderV3Req:
+            properties:
+                icebergQty:
+                    default: ""
+                    type: string
+                newClientOrderId:
+                    default: ""
+                    type: string
+                newOrderRespType:
+                    default: ""
+                    type: string
+                price:
+                    default: ""
+                    type: string
+                quantity:
+                    default: ""
+                    type: string
+                quoteOrderQty:
+                    default: ""
+                    type: string
+                recvWindow:
+                    format: int64
+                    type: integer
+                selfTradePreventionMode:
+                    default: ""
+                    type: string
+                side:
+                    default: ""
+                    type: string
+                stopPrice:
+                    default: ""
+                    type: string
+                strategyId:
+                    format: int64
+                    type: integer
+                strategyType:
+                    type: integer
+                symbol:
+                    default: ""
+                    type: string
+                timeInForce:
+                    default: ""
+                    type: string
+                timestamp:
+                    format: int64
+                    type: integer
+                trailingDelta:
+                    format: int64
+                    type: integer
+                type:
+                    default: ""
+                    type: string
+            required:
+                - symbol
+                - side
+                - type
+                - timestamp
+            type: object
+        SpotCreateOrderV3Resp:
+            example: '{ "symbol": "BTCUSDT", "orderId": 28, "orderListId": -1,  "clientOrderId": "6gCrw2kRUAF9CvJDGP16IP", "transactTime": 1507725176595 }'
+            properties:
+                clientOrderId:
+                    type: string
+                orderId:
+                    format: int64
+                    type: integer
+                orderListId:
+                    format: int64
+                    type: integer
+                symbol:
+                    type: string
+                transactTime:
+                    format: int64
+                    type: integer
+                price:
+                    type: string
+                origQty:
+                    type: string
+                executedQty:
+                    type: string
+                origQuoteOrderQty:
+                    type: string
+                cummulativeQuoteQty:
+                    type: string
+                status:
+                    type: string
+                timeInForce:
+                    type: string
+                type:
+                    type: string
+                side:
+                    type: string
+                workingTime:
+                    type: integer
+                    format: int64
+                selfTradePreventionMode:
+                    type: string
+                fills:
+                    type: array
+                    items:
+                        type: object
+                        properties:
+                            price:
+                                type: string
+                            qty:
+                                type: string
+                            commission:
+                                type: string
+                            commissionAsset:
+                                type: string
+                            tradeId:
+                                type: integer
+                                format: int64
+            type: object
+    securitySchemes:
+        ApiKey:
+            in: header
+            name: X-MBX-APIKEY
+            type: apiKey
+info:
+    title: ""
+    version: ""
+openapi: ""
+paths:
+    /api/v3/order:
+        post:
+            description: Send in a new order.
+            operationId: CreateOrderV3
+            requestBody:
+                content:
+                    application/x-www-form-urlencoded:
+                        schema:
+                            $ref: '#/components/schemas/SpotCreateOrderV3Req'
+                description: The request body for SpotCreateOrderV3
+                required: true
+            responses:
+                4XX:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/APIError'
+                    description: Client Error
+                5XX:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/APIError'
+                    description: Server Error
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/SpotCreateOrderV3Resp'
+                    description: Successful operation
+            security:
+                - ApiKey: []
+            summary: New order (TRADE)
+            tags:
+                - Spot Trading

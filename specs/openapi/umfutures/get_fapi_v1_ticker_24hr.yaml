@@ -1,0 +1,95 @@
+components:
+    schemas:
+        APIError:
+            description: binance API error
+            properties:
+                code:
+                    type: integer
+                msg:
+                    type: string
+            type: object
+        UmfuturesGetTicker24hrV1RespItem:
+            example: '{ "symbol": "BTCUSDT", "priceChange": "-94.99999800", "priceChangePercent": "-95.960", "weightedAvgPrice": "0.29628482", "lastPrice": "4.00000200", "lastQty": "200.00000000", "openPrice": "99.00000000", "highPrice": "100.00000000", "lowPrice": "0.10000000", "volume": "8913.30000000", "quoteVolume": "15.30000000", "openTime": 1499783499040, "closeTime": 1499869899040, "firstId": 28385,    "lastId": 28460,     "count": 76          }'
+            properties:
+                closeTime:
+                    format: int64
+                    type: integer
+                count:
+                    type: integer
+                firstId:
+                    type: integer
+                    format: int64
+                highPrice:
+                    type: string
+                lastId:
+                    type: integer
+                    format: int64
+                lastPrice:
+                    type: string
+                lastQty:
+                    type: string
+                lowPrice:
+                    type: string
+                openPrice:
+                    type: string
+                openTime:
+                    format: int64
+                    type: integer
+                priceChange:
+                    type: string
+                priceChangePercent:
+                    type: string
+                quoteVolume:
+                    type: string
+                symbol:
+                    type: string
+                volume:
+                    type: string
+                weightedAvgPrice:
+                    type: string
+            type: object
+        UmfuturesGetTicker24hrV1Resp:
+            oneOf:
+                - type: array
+                  items:
+                      $ref: '#/components/schemas/UmfuturesGetTicker24hrV1RespItem'
+                - $ref: '#/components/schemas/UmfuturesGetTicker24hrV1RespItem'
+info:
+    title: ""
+    version: ""
+openapi: ""
+paths:
+    /fapi/v1/ticker/24hr:
+        get:
+            description: |-
+                24 hour rolling window price change statistics.
+                Careful when accessing this with no symbol.
+            operationId: GetTicker24hrV1
+            parameters:
+                - in: query
+                  name: symbol
+                  schema:
+                    default: ""
+                    type: string
+            responses:
+                4XX:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/APIError'
+                    description: Client Error
+                5XX:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/APIError'
+                    description: Server Error
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UmfuturesGetTicker24hrV1Resp'
+                    description: Successful operation
+            summary: 24hr Ticker Price Change Statistics
+            tags:
+                - Futures

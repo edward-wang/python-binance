@@ -1,0 +1,142 @@
+components:
+    schemas:
+        APIError:
+            description: binance API error
+            properties:
+                code:
+                    type: integer
+                msg:
+                    type: string
+            type: object
+        GetAllOrdersV3Resp:
+            example: '[ { "symbol": "LTCBTC", "orderId": 1, "orderListId": -1,  "clientOrderId": "myOrder1", "price": "0.1", "origQty": "1.0", "executedQty": "0.0", "cummulativeQuoteQty": "0.0", "status": "NEW", "timeInForce": "GTC", "type": "LIMIT", "side": "BUY", "stopPrice": "0.0", "icebergQty": "0.0", "time": 1499827319559, "updateTime": 1499827319559, "isWorking": true, "origQuoteOrderQty": "0.000000", "workingTime": 1499827319559, "selfTradePreventionMode": "NONE" } ]'
+            items:
+                $ref: '#/components/schemas/GetAllOrdersV3RespItem'
+            type: array
+        GetAllOrdersV3RespItem:
+            properties:
+                clientOrderId:
+                    type: string
+                cummulativeQuoteQty:
+                    type: string
+                executedQty:
+                    type: string
+                icebergQty:
+                    type: string
+                isWorking:
+                    type: boolean
+                orderId:
+                    format: int64
+                    type: integer
+                orderListId:
+                    format: int64
+                    type: integer
+                origQty:
+                    type: string
+                origQuoteOrderQty:
+                    type: string
+                price:
+                    type: string
+                selfTradePreventionMode:
+                    type: string
+                side:
+                    type: string
+                status:
+                    type: string
+                stopPrice:
+                    type: string
+                symbol:
+                    type: string
+                time:
+                    format: int64
+                    type: integer
+                timeInForce:
+                    type: string
+                type:
+                    type: string
+                updateTime:
+                    format: int64
+                    type: integer
+                workingTime:
+                    format: int64
+                    type: integer
+            type: object
+    securitySchemes:
+        ApiKey:
+            in: header
+            name: X-MBX-APIKEY
+            type: apiKey
+info:
+    title: ""
+    version: ""
+openapi: ""
+paths:
+    /api/v3/allOrders:
+        get:
+            description: Get all account orders; active, canceled, or filled.
+            operationId: GetAllOrdersV3
+            parameters:
+                - in: query
+                  name: symbol
+                  required: true
+                  schema:
+                    default: ""
+                    type: string
+                - in: query
+                  name: orderId
+                  schema:
+                    format: int64
+                    type: integer
+                - in: query
+                  name: startTime
+                  schema:
+                    format: int64
+                    type: integer
+                - in: query
+                  name: endTime
+                  schema:
+                    format: int64
+                    type: integer
+                - description: Default 500; max 1000.
+                  in: query
+                  name: limit
+                  schema:
+                    default: 500
+                    maximum: 1000
+                    type: integer
+                - description: The value cannot be greater than `60000`
+                  in: query
+                  name: recvWindow
+                  schema:
+                    format: int64
+                    type: integer
+                - in: query
+                  name: timestamp
+                  required: true
+                  schema:
+                    format: int64
+                    type: integer
+            responses:
+                4XX:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/APIError'
+                    description: Client Error
+                5XX:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/APIError'
+                    description: Server Error
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetAllOrdersV3Resp'
+                    description: Successful operation
+            security:
+                - ApiKey: []
+            summary: All orders (USER_DATA)
+            tags:
+                - Spot Trading

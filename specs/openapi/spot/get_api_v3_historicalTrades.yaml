@@ -1,0 +1,85 @@
+components:
+    schemas:
+        APIError:
+            description: binance API error
+            properties:
+                code:
+                    type: integer
+                msg:
+                    type: string
+            type: object
+        GetHistoricalTradesV3Resp:
+            example: '[ { "id": 28457, "price": "4.00000100", "qty": "12.00000000", "quoteQty": "48.000012", "time": 1499865549590, "isBuyerMaker": true, "isBestMatch": true } ]'
+            items:
+                $ref: '#/components/schemas/GetHistoricalTradesV3RespItem'
+            type: array
+        GetHistoricalTradesV3RespItem:
+            properties:
+                id:
+                    format: int64
+                    type: integer
+                isBestMatch:
+                    type: boolean
+                isBuyerMaker:
+                    type: boolean
+                price:
+                    type: string
+                qty:
+                    type: string
+                quoteQty:
+                    type: string
+                time:
+                    format: int64
+                    type: integer
+            type: object
+info:
+    title: ""
+    version: ""
+openapi: ""
+paths:
+    /api/v3/historicalTrades:
+        get:
+            description: Get older trades.
+            operationId: GetHistoricalTradesV3
+            parameters:
+                - in: query
+                  name: symbol
+                  required: true
+                  schema:
+                    default: ""
+                    type: string
+                - description: Default 500; max 1000.
+                  in: query
+                  name: limit
+                  schema:
+                    default: 500
+                    maximum: 1000
+                    type: integer
+                - description: TradeId to fetch from. Default gets most recent trades.
+                  in: query
+                  name: fromId
+                  schema:
+                    format: int64
+                    type: integer
+            responses:
+                4XX:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/APIError'
+                    description: Client Error
+                5XX:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/APIError'
+                    description: Server Error
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetHistoricalTradesV3Resp'
+                    description: Successful operation
+            summary: Old trade lookup
+            tags:
+                - Spot Trading

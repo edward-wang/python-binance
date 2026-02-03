@@ -1,0 +1,89 @@
+components:
+    schemas:
+        APIError:
+            description: binance API error
+            properties:
+                code:
+                    type: integer
+                msg:
+                    type: string
+            type: object
+        UmfuturesGetContinuousKlinesV1Resp:
+            example: "[ [ 1607444700000,      \t \"18879.99\",       \t \t \"18900.00\",       \t \t \"18878.98\",       \t \t \"18896.13\",      \t \t \"492.363\", \t\t\t \t 1607444759999,       \t \"9302145.66080\",    \t 1874,             \t\t \"385.983\",    \t\t\t \"7292402.33267\",      \t \"0\" \t\t\t\t\t ] ]"
+            items:
+                items:
+                    oneOf:
+                        - type: string
+                        - type: integer
+                          format: int64
+                type: array
+            type: array
+info:
+    title: ""
+    version: ""
+openapi: ""
+paths:
+    /fapi/v1/continuousKlines:
+        get:
+            description: |-
+                Kline/candlestick bars for a specific contract type.
+                Klines are uniquely identified by their open time.
+            operationId: GetContinuousKlinesV1
+            parameters:
+                - in: query
+                  name: pair
+                  required: true
+                  schema:
+                    default: ""
+                    type: string
+                - in: query
+                  name: contractType
+                  required: true
+                  schema:
+                    default: ""
+                    type: string
+                - in: query
+                  name: interval
+                  required: true
+                  schema:
+                    default: ""
+                    type: string
+                - in: query
+                  name: startTime
+                  schema:
+                    format: int64
+                    type: integer
+                - in: query
+                  name: endTime
+                  schema:
+                    format: int64
+                    type: integer
+                - description: Default 500; max 1500.
+                  in: query
+                  name: limit
+                  schema:
+                    default: 500
+                    maximum: 1500
+                    type: integer
+            responses:
+                4XX:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/APIError'
+                    description: Client Error
+                5XX:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/APIError'
+                    description: Server Error
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UmfuturesGetContinuousKlinesV1Resp'
+                    description: Successful operation
+            summary: Continuous Contract Kline/Candlestick Data
+            tags:
+                - Futures

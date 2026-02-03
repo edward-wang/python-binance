@@ -1,0 +1,54 @@
+components:
+    schemas:
+        APIError:
+            description: binance API error
+            properties:
+                code:
+                    type: integer
+                msg:
+                    type: string
+            type: object
+        CreateUserDataStreamV3Resp:
+            example: '{ "listenKey": "pqia91ma19a5s61cv6a81va65sdf19v8a65a1a5s61cv6a81va65sdf19v8a65a1" }'
+            properties:
+                listenKey:
+                    type: string
+            type: object
+    securitySchemes:
+        ApiKey:
+            in: header
+            name: X-MBX-APIKEY
+            type: apiKey
+info:
+    title: ""
+    version: ""
+openapi: ""
+paths:
+    /api/v3/userDataStream:
+        post:
+            description: Start a new user data stream. The stream will close after 60 minutes unless a keepalive is sent.
+            operationId: CreateUserDataStreamV3
+            responses:
+                4XX:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/APIError'
+                    description: Client Error
+                5XX:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/APIError'
+                    description: Server Error
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CreateUserDataStreamV3Resp'
+                    description: Successful operation
+            security:
+                - ApiKey: []
+            summary: Start user data stream (USER_STREAM)
+            tags:
+                - Spot Trading

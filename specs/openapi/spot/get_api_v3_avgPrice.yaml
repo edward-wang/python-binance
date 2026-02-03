@@ -1,0 +1,59 @@
+components:
+    schemas:
+        APIError:
+            description: binance API error
+            properties:
+                code:
+                    type: integer
+                msg:
+                    type: string
+            type: object
+        GetAvgPriceV3Resp:
+            example: '{ "mins": 5,                     "price": "9.35751834",         "closeTime": 1694061154503     }'
+            properties:
+                closeTime:
+                    format: int64
+                    type: integer
+                mins:
+                    type: integer
+                price:
+                    type: string
+            type: object
+info:
+    title: ""
+    version: ""
+openapi: ""
+paths:
+    /api/v3/avgPrice:
+        get:
+            description: Current average price for a symbol.
+            operationId: GetAvgPriceV3
+            parameters:
+                - in: query
+                  name: symbol
+                  required: true
+                  schema:
+                    default: ""
+                    type: string
+            responses:
+                4XX:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/APIError'
+                    description: Client Error
+                5XX:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/APIError'
+                    description: Server Error
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetAvgPriceV3Resp'
+                    description: Successful operation
+            summary: Current average price
+            tags:
+                - Spot Trading

@@ -1,0 +1,83 @@
+components:
+    schemas:
+        APIError:
+            description: binance API error
+            properties:
+                code:
+                    type: integer
+                msg:
+                    type: string
+            type: object
+        UmfuturesGetKlinesV1Resp:
+            example: '[ [ 1499040000000,       "0.01634790",        "0.80000000",        "0.01575800",        "0.01577100",        "148976.11427815",   1499644799999,       "2434.19055334",     308,                 "1756.87402397",     "28.46694368",       "17928899.62484339"  ] ]'
+            items:
+                items:
+                    oneOf:
+                        - type: string
+                        - type: integer
+                          format: int64
+                type: array
+            type: array
+info:
+    title: ""
+    version: ""
+openapi: ""
+paths:
+    /fapi/v1/klines:
+        get:
+            description: |-
+                Kline/candlestick bars for a symbol.
+                Klines are uniquely identified by their open time.
+            operationId: GetKlinesV1
+            parameters:
+                - in: query
+                  name: symbol
+                  required: true
+                  schema:
+                    default: ""
+                    type: string
+                - in: query
+                  name: interval
+                  required: true
+                  schema:
+                    default: ""
+                    type: string
+                - in: query
+                  name: startTime
+                  schema:
+                    format: int64
+                    type: integer
+                - in: query
+                  name: endTime
+                  schema:
+                    format: int64
+                    type: integer
+                - description: Default 500; max 1500.
+                  in: query
+                  name: limit
+                  schema:
+                    default: 500
+                    maximum: 1500
+                    type: integer
+            responses:
+                4XX:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/APIError'
+                    description: Client Error
+                5XX:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/APIError'
+                    description: Server Error
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UmfuturesGetKlinesV1Resp'
+                    description: Successful operation
+            summary: Kline/Candlestick Data
+            tags:
+                - Futures

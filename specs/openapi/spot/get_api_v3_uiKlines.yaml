@@ -1,0 +1,88 @@
+components:
+    schemas:
+        APIError:
+            description: binance API error
+            properties:
+                code:
+                    type: integer
+                msg:
+                    type: string
+            type: object
+info:
+    title: ""
+    version: ""
+openapi: ""
+paths:
+    /api/v3/uiKlines:
+        get:
+            description: |-
+                The request is similar to klines having the same parameters and response.
+                uiKlines return modified kline data, optimized for presentation of candlestick charts.
+            operationId: GetUiKlinesV3
+            parameters:
+                - in: query
+                  name: symbol
+                  required: true
+                  schema:
+                    default: ""
+                    type: string
+                - description: See <a href="/docs/binance-spot-api-docs/rest-api/market-data-endpoints#kline-intervals">`klines`</a>
+                  in: query
+                  name: interval
+                  required: true
+                  schema:
+                    default: ""
+                    type: string
+                - in: query
+                  name: startTime
+                  schema:
+                    format: int64
+                    type: integer
+                - in: query
+                  name: endTime
+                  schema:
+                    format: int64
+                    type: integer
+                - description: 'Default: 0 (UTC)'
+                  in: query
+                  name: timeZone
+                  schema:
+                    default: "0"
+                    type: string
+                - description: Default 500; max 1000.
+                  in: query
+                  name: limit
+                  schema:
+                    default: 500
+                    maximum: 1000
+                    type: integer
+            responses:
+                4XX:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/APIError'
+                    description: Client Error
+                5XX:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/APIError'
+                    description: Server Error
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                example: '[ [ 1499040000000,       "0.01634790",        "0.80000000",        "0.01575800",        "0.01577100",        "148976.11427815",   1499644799999,       "2434.19055334",     308,                 "1756.87402397",     "28.46694368",       "0"                  ] ]'
+                                items:
+                                    items:
+                                        oneOf:
+                                            - type: integer
+                                              format: int64
+                                            - type: string
+                                    type: array
+                                type: array
+                    description: Successful operation
+            summary: UIKlines
+            tags:
+                - Spot Trading

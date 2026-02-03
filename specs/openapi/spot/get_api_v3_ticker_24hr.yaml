@@ -1,0 +1,129 @@
+components:
+    schemas:
+        APIError:
+            description: binance API error
+            properties:
+                code:
+                    type: integer
+                msg:
+                    type: string
+            type: object
+        SpotGetTicker24hrV3Resp:
+            oneOf:
+                - type: array
+                  items:
+                    $ref: '#/components/schemas/SpotGetTicker24hrV3RespItem'
+                - $ref: '#/components/schemas/SpotGetTicker24hrV3RespItem'
+        SpotGetTicker24hrV3RespItem:
+            example: '{ "symbol": "BNBBTC", "priceChange": "-94.99999800", "priceChangePercent": "-95.960", "weightedAvgPrice": "0.29628482", "prevClosePrice": "0.10002000", "lastPrice": "4.00000200", "lastQty": "200.00000000", "bidPrice": "4.00000000", "bidQty": "100.00000000", "askPrice": "4.00000200", "askQty": "100.00000000", "openPrice": "99.00000000", "highPrice": "100.00000000", "lowPrice": "0.10000000", "volume": "8913.30000000", "quoteVolume": "15.30000000", "openTime": 1499783499040, "closeTime": 1499869899040, "firstId": 28385,    "lastId": 28460,     "count": 76          }'
+            properties:
+                askPrice:
+                    type: string
+                askQty:
+                    type: string
+                bidPrice:
+                    type: string
+                bidQty:
+                    type: string
+                closeTime:
+                    format: int64
+                    type: integer
+                count:
+                    type: integer
+                firstId:
+                    format: int64
+                    type: integer
+                highPrice:
+                    type: string
+                lastId:
+                    format: int64
+                    type: integer
+                lastPrice:
+                    type: string
+                lastQty:
+                    type: string
+                lowPrice:
+                    type: string
+                openPrice:
+                    type: string
+                openTime:
+                    format: int64
+                    type: integer
+                prevClosePrice:
+                    type: string
+                priceChange:
+                    type: string
+                priceChangePercent:
+                    type: string
+                quoteVolume:
+                    type: string
+                symbol:
+                    type: string
+                volume:
+                    type: string
+                weightedAvgPrice:
+                    type: string
+            type: object
+info:
+    title: ""
+    version: ""
+openapi: ""
+paths:
+    /api/v3/ticker/24hr:
+        get:
+            description: 24 hour rolling window price change statistics. Careful when accessing this with no symbol.
+            operationId: GetTicker24hrV3
+            parameters:
+                - description: |-
+                    Parameter symbol and symbols cannot be used in combination. <br/> If neither parameter is sent, tickers for all symbols will be returned in an array. <br/><br/>
+                             Examples of accepted format for the symbols parameter:
+                             [&#34;BTCUSDT&#34;,&#34;BNBUSDT&#34;] <br/>
+                             or <br/>
+                             %5B%22BTCUSDT%22,%22BNBUSDT%22%5D
+                  in: query
+                  name: symbol
+                  schema:
+                    default: ""
+                    type: string
+                - description: |-
+                    Parameter symbol and symbols cannot be used in combination. <br/> If neither parameter is sent, tickers for all symbols will be returned in an array. <br/><br/>
+                             Examples of accepted format for the symbols parameter:
+                             [&#34;BTCUSDT&#34;,&#34;BNBUSDT&#34;] <br/>
+                             or <br/>
+                             %5B%22BTCUSDT%22,%22BNBUSDT%22%5D
+                  in: query
+                  name: symbols
+                  schema:
+                    default: ""
+                    type: string
+                - description: 'Supported values: `FULL` or `MINI`. <br/>If none provided, the default is `FULL`'
+                  in: query
+                  name: type
+                  schema:
+                    default: ""
+                    enum:
+                        - FULL
+                        - MINI
+                    type: string
+            responses:
+                4XX:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/APIError'
+                    description: Client Error
+                5XX:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/APIError'
+                    description: Server Error
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/SpotGetTicker24hrV3Resp'
+                    description: Successful operation
+            summary: 24hr ticker price change statistics
+            tags:
+                - Spot Trading

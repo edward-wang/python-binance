@@ -1,0 +1,58 @@
+components:
+    schemas:
+        APIError:
+            description: binance API error
+            properties:
+                code:
+                    type: integer
+                msg:
+                    type: string
+            type: object
+        DeleteUserDataStreamV3Resp:
+            example: '{}'
+            type: object
+    securitySchemes:
+        ApiKey:
+            in: header
+            name: X-MBX-APIKEY
+            type: apiKey
+info:
+    title: ""
+    version: ""
+openapi: ""
+paths:
+    /api/v3/userDataStream:
+        delete:
+            description: Close out a user data stream.
+            operationId: DeleteUserDataStreamV3
+            parameters:
+                - in: query
+                  name: listenKey
+                  required: true
+                  schema:
+                    default: ""
+                    type: string
+            responses:
+                4XX:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/APIError'
+                    description: Client Error
+                5XX:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/APIError'
+                    description: Server Error
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/DeleteUserDataStreamV3Resp'
+                    description: Successful operation
+            security:
+                - ApiKey: []
+            summary: Close user data stream (USER_STREAM)
+            tags:
+                - Spot Trading

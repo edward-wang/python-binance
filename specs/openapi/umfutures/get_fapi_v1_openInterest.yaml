@@ -1,0 +1,59 @@
+components:
+    schemas:
+        APIError:
+            description: binance API error
+            properties:
+                code:
+                    type: integer
+                msg:
+                    type: string
+            type: object
+        GetOpenInterestV1Resp:
+            example: '{ "openInterest": "10659.509", "symbol": "BTCUSDT", "time": 1589437530011    }'
+            properties:
+                openInterest:
+                    type: string
+                symbol:
+                    type: string
+                time:
+                    format: int64
+                    type: integer
+            type: object
+info:
+    title: ""
+    version: ""
+openapi: ""
+paths:
+    /fapi/v1/openInterest:
+        get:
+            description: Get present open interest of a specific symbol.
+            operationId: GetOpenInterestV1
+            parameters:
+                - in: query
+                  name: symbol
+                  required: true
+                  schema:
+                    default: ""
+                    type: string
+            responses:
+                4XX:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/APIError'
+                    description: Client Error
+                5XX:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/APIError'
+                    description: Server Error
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetOpenInterestV1Resp'
+                    description: Successful operation
+            summary: Open Interest
+            tags:
+                - Futures

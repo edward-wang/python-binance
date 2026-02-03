@@ -1,0 +1,1037 @@
+asyncapi: 3.0.0
+info:
+  title: Binance Portfolio Margin WebSocket Streams
+  version: 1.0.0
+  description: |
+    AsyncAPI specification for Binance Portfolio Margin WebSocket Streams.
+    
+    This specification covers the authenticated user data stream that delivers
+    conditional order updates, margin account changes, liability adjustments,
+    cross-venue futures balances, and stream expiration notices for portfolio
+    margin accounts. A valid listenKey obtained from the REST API is required to
+    connect and receive real-time events.
+servers:
+  mainnet:
+    host: fstream.binance.com
+    protocol: wss
+    pathname: /pm
+    title: Binance Portfolio Margin Server
+    summary: Binance Portfolio Margin WebSocket API Server (Mainnet)
+    description: WebSocket server for binance exchange portfolio margin API (mainnet environment)
+channels:
+  userDataStream:
+    address: /ws/{listenKey}
+    title: Portfolio Margin User Data Stream
+    description: |
+      Authenticated connection delivering real-time portfolio margin account,
+      order, and liability updates. Connect with a valid listenKey obtained from
+      the REST API userDataStream.start endpoint to receive events.
+    parameters:
+      listenKey:
+        description: |
+          64-character authentication key for the portfolio margin user data stream.
+          Obtained from the REST API userDataStream.start request. Valid for 60
+          minutes and extendable with userDataStream.ping. Required for receiving
+          account, order, and margin updates.
+        examples:
+          - XaEAKTsQSRLZAGH9tuIu37plSRsdjmlAVBoNYPUITlTAko1WI22PgmBMpI1rS8Yh
+          - pqia91ma19a5s61cv6a81va65sdf19v8a65a1a5s61cv6a81va65sdf19v8a65a1
+    messages:
+      conditionalOrderTradeUpdateEvent:
+        $ref: '#/components/messages/conditionalOrderTradeUpdateEvent'
+      openOrderLossEvent:
+        $ref: '#/components/messages/openOrderLossEvent'
+      marginAccountUpdateEvent:
+        $ref: '#/components/messages/marginAccountUpdateEvent'
+      liabilityUpdateEvent:
+        $ref: '#/components/messages/liabilityUpdateEvent'
+      marginOrderUpdateEvent:
+        $ref: '#/components/messages/marginOrderUpdateEvent'
+      futuresOrderUpdateEvent:
+        $ref: '#/components/messages/futuresOrderUpdateEvent'
+      futuresBalancePositionUpdateEvent:
+        $ref: '#/components/messages/futuresBalancePositionUpdateEvent'
+      futuresAccountConfigUpdateEvent:
+        $ref: '#/components/messages/futuresAccountConfigUpdateEvent'
+      riskLevelChangeEvent:
+        $ref: '#/components/messages/riskLevelChangeEvent'
+      marginBalanceUpdateEvent:
+        $ref: '#/components/messages/marginBalanceUpdateEvent'
+      userDataStreamExpiredEvent:
+        $ref: '#/components/messages/userDataStreamExpiredEvent'
+      error:
+        $ref: '#/components/messages/errorMessage'
+operations:
+  userDataStreamReceiveEvents:
+    title: Receive Portfolio Margin Events
+    summary: Receive portfolio margin user data stream events
+    description: |
+      Receive various user data stream events after connecting with a valid
+      listenKey. Events include conditional order updates, risk level changes,
+      margin balance updates, and futures hedging information.
+    action: receive
+    channel:
+      $ref: '#/channels/userDataStream'
+    messages:
+      - $ref: '#/channels/userDataStream/messages/conditionalOrderTradeUpdateEvent'
+      - $ref: '#/channels/userDataStream/messages/openOrderLossEvent'
+      - $ref: '#/channels/userDataStream/messages/marginAccountUpdateEvent'
+      - $ref: '#/channels/userDataStream/messages/liabilityUpdateEvent'
+      - $ref: '#/channels/userDataStream/messages/marginOrderUpdateEvent'
+      - $ref: '#/channels/userDataStream/messages/futuresOrderUpdateEvent'
+      - $ref: '#/channels/userDataStream/messages/futuresBalancePositionUpdateEvent'
+      - $ref: '#/channels/userDataStream/messages/futuresAccountConfigUpdateEvent'
+      - $ref: '#/channels/userDataStream/messages/riskLevelChangeEvent'
+      - $ref: '#/channels/userDataStream/messages/marginBalanceUpdateEvent'
+      - $ref: '#/channels/userDataStream/messages/userDataStreamExpiredEvent'
+
+  userDataStreamReceiveError:
+    title: Receive Portfolio Margin Errors
+    summary: Receive error messages from the portfolio margin stream
+    description: Receive error messages returned when requests are invalid or the listenKey expires.
+    action: receive
+    channel:
+      $ref: '#/channels/userDataStream'
+    messages:
+      - $ref: '#/channels/userDataStream/messages/error'
+components:
+  messages:
+    conditionalOrderTradeUpdateEvent:
+      name: Conditional Order Trade Update Event
+      title: Conditional Order Trade Update Event
+      summary: Sent when a conditional order is created or changes status
+      contentType: application/json
+      x-event: true
+      payload:
+        $ref: '#/components/schemas/conditionalOrderTradeUpdateEvent'
+
+    openOrderLossEvent:
+      name: Open Order Loss Update Event
+      title: Open Order Loss Update Event
+      summary: Reports cross margin order loss updates
+      contentType: application/json
+      x-event: true
+      payload:
+        $ref: '#/components/schemas/openOrderLossEvent'
+
+    marginAccountUpdateEvent:
+      name: Margin Account Update Event
+      title: Margin Account Update Event
+      summary: Sent when the portfolio margin account balance changes
+      contentType: application/json
+      x-event: true
+      payload:
+        $ref: '#/components/schemas/marginAccountUpdateEvent'
+
+    liabilityUpdateEvent:
+      name: Liability Update Event
+      title: Liability Update Event
+      summary: Portfolio margin liability adjustment notification
+      contentType: application/json
+      x-event: true
+      payload:
+        $ref: '#/components/schemas/liabilityUpdateEvent'
+
+    marginOrderUpdateEvent:
+      name: Margin Order Update Event
+      title: Margin Order Update Event
+      summary: Margin order execution report updates
+      contentType: application/json
+      x-event: true
+      payload:
+        $ref: '#/components/schemas/marginOrderUpdateEvent'
+
+    futuresOrderUpdateEvent:
+      name: Futures Order Update Event
+      title: Futures Order Update Event
+      summary: Futures order trade update event
+      contentType: application/json
+      x-event: true
+      payload:
+        $ref: '#/components/schemas/futuresOrderUpdateEvent'
+
+    futuresBalancePositionUpdateEvent:
+      name: Futures Balance and Position Update Event
+      title: Futures Balance and Position Update Event
+      summary: Futures balance and position update event
+      contentType: application/json
+      x-event: true
+      payload:
+        $ref: '#/components/schemas/futuresBalancePositionUpdateEvent'
+
+    futuresAccountConfigUpdateEvent:
+      name: Futures Account Configuration Update Event
+      title: Futures Account Configuration Update Event
+      summary: Futures account configuration update event
+      contentType: application/json
+      x-event: true
+      payload:
+        $ref: '#/components/schemas/futuresAccountConfigUpdateEvent'
+
+    riskLevelChangeEvent:
+      name: Risk Level Change Event
+      title: Risk Level Change Event
+      summary: Sent when the user's position risk ratio is too high
+      contentType: application/json
+      x-event: true
+      payload:
+        $ref: '#/components/schemas/riskLevelChangeEvent'
+
+    marginBalanceUpdateEvent:
+      name: Margin Balance Update Event
+      title: Margin Balance Update Event
+      summary: Margin balance update event
+      contentType: application/json
+      x-event: true
+      payload:
+        $ref: '#/components/schemas/marginBalanceUpdateEvent'
+
+    userDataStreamExpiredEvent:
+      name: User Data Stream Expired Event
+      title: User Data Stream Expired Event
+      summary: Sent when the listenKey has expired
+      contentType: application/json
+      x-event: true
+      payload:
+        $ref: '#/components/schemas/userDataStreamExpiredEvent'
+
+    errorMessage:
+      name: Error Message
+      title: Error Response
+      summary: Error response from server
+      contentType: application/json
+      x-error: true
+      x-handler-key: error
+      payload:
+        $ref: '#/components/schemas/errorResponse'
+
+  schemas:
+    conditionalOrderTradeUpdateEvent:
+      type: object
+      description: Conditional Order Trade Update - sent when new order created or order status changed
+      properties:
+        e:
+          type: string
+          description: Event Type
+          const: CONDITIONAL_ORDER_TRADE_UPDATE
+          example: CONDITIONAL_ORDER_TRADE_UPDATE
+        T:
+          type: integer
+          format: int64
+          description: Transaction Time (milliseconds)
+          example: 1669262908216
+        E:
+          type: integer
+          format: int64
+          description: Event Time (milliseconds)
+          example: 1669262908218
+        fs:
+          type: string
+          description: Event business unit
+          example: UM
+        so:
+          type: object
+          description: Strategy order details
+          properties:
+            s:
+              type: string
+              description: Symbol
+              example: BTCUSDT
+            c:
+              type: string
+              description: Strategy Client Order Id
+              example: TEST
+            si:
+              type: integer
+              description: Strategy ID
+              example: 176057039
+            S:
+              type: string
+              description: Side
+              example: SELL
+              enum:
+                - BUY
+                - SELL
+            st:
+              type: string
+              description: Strategy Type
+              example: TRAILING_STOP_MARKET
+              enum:
+                - STOP
+                - TAKE_PROFIT
+                - STOP_MARKET
+                - TAKE_PROFIT_MARKET
+                - TRAILING_STOP_MARKET
+            f:
+              type: string
+              description: Time in Force
+              example: GTC
+              enum:
+                - GTC
+                - IOC
+                - FOK
+                - GTX
+            q:
+              type: string
+              description: Quantity
+              example: "0.001"
+            p:
+              type: string
+              description: Price
+              example: "0"
+            sp:
+              type: string
+              description: Stop Price
+              example: "7103.04"
+            os:
+              type: string
+              description: Strategy Order Status
+              example: NEW
+              enum:
+                - NEW
+                - CANCELED
+                - EXPIRED
+                - TRIGGERED
+                - FINISHED
+            T:
+              type: integer
+              format: int64
+              description: Order book Time (milliseconds)
+              example: 1568879465650
+            ut:
+              type: integer
+              format: int64
+              description: Order update Time (milliseconds)
+              example: 1669262908216
+            R:
+              type: boolean
+              description: Is this reduce only
+              example: false
+            wt:
+              type: string
+              description: Stop Price Working Type
+              example: MARK_PRICE
+            ps:
+              type: string
+              description: Position Side
+              example: LONG
+            cp:
+              type: boolean
+              description: If Close-All
+              example: false
+            AP:
+              type: string
+              description: Activation Price
+              example: "7476.89"
+            cr:
+              type: string
+              description: Callback Rate
+              example: "5.0"
+            i:
+              type: integer
+              description: Order Id
+              example: 8886774
+            V:
+              type: string
+              description: STP mode
+              example: EXPIRE_TAKER
+            gtd:
+              type: integer
+              description: Good Till Date
+              example: 0
+    openOrderLossEvent:
+      type: object
+      description: Open Order Loss Update - cross margin order margin stream updates
+      properties:
+        e:
+          type: string
+          description: Event Type
+          const: openOrderLoss
+          example: openOrderLoss
+        E:
+          type: integer
+          format: int64
+          description: Event Time (milliseconds)
+          example: 1678710578788
+        O:
+          type: array
+          description: Array of loss updates
+          items:
+            type: object
+            properties:
+              a:
+                type: string
+                description: Asset
+                example: BUSD
+              o:
+                type: string
+                description: Loss Amount (negative number)
+                example: "-0.1232313"
+    marginAccountUpdateEvent:
+      type: object
+      description: Margin Account Update - sent when account balance has changed
+      properties:
+        e:
+          type: string
+          description: Event Type
+          const: outboundAccountPosition
+          example: outboundAccountPosition
+        E:
+          type: integer
+          format: int64
+          description: Event Time (milliseconds)
+          example: 1564034571105
+        u:
+          type: integer
+          format: int64
+          description: Time of last account update (milliseconds)
+          example: 1564034571073
+        U:
+          type: integer
+          format: int64
+          description: Update ID
+          example: 1027053479517
+        B:
+          type: array
+          description: Balances Array
+          items:
+            type: object
+            properties:
+              a:
+                type: string
+                description: Asset
+                example: ETH
+              f:
+                type: string
+                description: Free balance
+                example: "10000.000000"
+              l:
+                type: string
+                description: Locked balance
+                example: "0.000000"
+    liabilityUpdateEvent:
+      type: object
+      description: Liability Update - margin liability update event
+      properties:
+        e:
+          type: string
+          description: Event Type
+          const: liabilityChange
+          example: liabilityChange
+        E:
+          type: integer
+          format: int64
+          description: Event Time (milliseconds)
+          example: 1573200697110
+        a:
+          type: string
+          description: Asset
+          example: BTC
+        t:
+          type: string
+          description: Type
+          example: BORROW
+        T:
+          type: integer
+          format: int64
+          description: Transaction ID
+          example: 1352286576452864727
+        p:
+          type: string
+          description: Principal
+          example: "1.03453430"
+        i:
+          type: string
+          description: Interest
+          example: "0"
+        l:
+          type: string
+          description: Total Liability
+          example: "1.03476851"
+    marginOrderUpdateEvent:
+      type: object
+      description: Margin Order Update - margin order execution report event
+      properties:
+        e:
+          type: string
+          description: Event Type
+          const: executionReport
+          example: executionReport
+        E:
+          type: integer
+          format: int64
+          description: Event Time (milliseconds)
+          example: 1499405658658
+        s:
+          type: string
+          description: Symbol
+          example: ETHBTC
+        c:
+          type: string
+          description: Client Order ID
+          example: mUvoqJxFIILMdfAW5iGSOW
+        S:
+          type: string
+          description: Side
+          example: BUY
+        o:
+          type: string
+          description: Order Type
+          example: LIMIT
+        f:
+          type: string
+          description: Time in Force
+          example: GTC
+        q:
+          type: string
+          description: Order Quantity
+          example: "1.00000000"
+        p:
+          type: string
+          description: Order Price
+          example: "0.10264410"
+        P:
+          type: string
+          description: Stop Price
+          example: "0.00000000"
+        d:
+          type: integer
+          description: Trailing Delta
+          example: 4
+        F:
+          type: string
+          description: Iceberg Quantity
+          example: "0.00000000"
+        g:
+          type: integer
+          description: OrderListId
+          example: -1
+        C:
+          type: string
+          description: Original Client Order ID
+          example: ""
+        x:
+          type: string
+          description: Current Execution Type
+          example: NEW
+        X:
+          type: string
+          description: Current Order Status
+          example: NEW
+        r:
+          type: string
+          description: Order Reject Reason
+          example: NONE
+        i:
+          type: integer
+          description: Order ID
+          example: 4293153
+        l:
+          type: string
+          description: Last Executed Quantity
+          example: "0.00000000"
+        z:
+          type: string
+          description: Cumulative Filled Quantity
+          example: "0.00000000"
+        L:
+          type: string
+          description: Last Executed Price
+          example: "0.00000000"
+        n:
+          type: string
+          description: Commission Amount
+          example: "0"
+        N:
+          type: string
+          description: Commission Asset
+          example: null
+        T:
+          type: integer
+          format: int64
+          description: Transaction Time (milliseconds)
+          example: 1499405658657
+        t:
+          type: integer
+          description: Trade ID
+          example: -1
+        v:
+          type: integer
+          description: Prevented Match Id
+          example: 3
+        I:
+          type: integer
+          description: UpdateId
+          example: 8641984
+        w:
+          type: boolean
+          description: Is Working
+          example: true
+        m:
+          type: boolean
+          description: Is Maker
+          example: false
+        M:
+          type: boolean
+          description: Ignore
+          example: false
+        O:
+          type: integer
+          format: int64
+          description: Order Creation Time (milliseconds)
+          example: 1499405658657
+        Z:
+          type: string
+          description: Cumulative Quote Asset Transacted Quantity
+          example: "0.00000000"
+        Y:
+          type: string
+          description: Last Quote Asset Transacted Quantity
+          example: "0.00000000"
+        Q:
+          type: string
+          description: Quote Order Quantity
+          example: "0.00000000"
+        D:
+          type: integer
+          format: int64
+          description: Trailing Time (milliseconds)
+          example: 1668680518494
+        j:
+          type: integer
+          description: Strategy ID
+          example: 1
+        J:
+          type: integer
+          description: Strategy Type
+          example: 1000000
+        W:
+          type: integer
+          format: int64
+          description: Working Time (milliseconds)
+          example: 1499405658657
+        V:
+          type: string
+          description: Self Trade Prevention Mode
+          example: NONE
+        u:
+          type: integer
+          description: Count of Order Update
+          example: 1
+        U:
+          type: integer
+          description: Order Update ID
+          example: 37
+        A:
+          type: string
+          description: Allowed Self Trade Prevention Mode
+          example: "3.000000"
+        B:
+          type: string
+          description: Prevented Quantity
+          example: "3.000000"
+    futuresOrderUpdateEvent:
+      type: object
+      description: Futures Order Update - futures order trade update event
+      properties:
+        e:
+          type: string
+          description: Event Type
+          const: ORDER_TRADE_UPDATE
+          example: ORDER_TRADE_UPDATE
+        fs:
+          type: string
+          description: Event business unit
+          example: UM
+          enum:
+            - UM
+            - CM
+        E:
+          type: integer
+          format: int64
+          description: Event Time (milliseconds)
+          example: 1568879465651
+        T:
+          type: integer
+          format: int64
+          description: Transaction Time (milliseconds)
+          example: 1568879465650
+        i:
+          type: string
+          description: Account Alias
+          example: ""
+        o:
+          type: object
+          description: Order details
+          properties:
+            s:
+              type: string
+              description: Symbol
+              example: BTCUSDT
+            c:
+              type: string
+              description: Client Order Id
+              example: TEST
+            S:
+              type: string
+              description: Side
+              example: SELL
+              enum:
+                - BUY
+                - SELL
+            o:
+              type: string
+              description: Order Type
+              example: MARKET
+              enum:
+                - MARKET
+                - LIMIT
+                - LIQUIDATION
+            f:
+              type: string
+              description: Time in Force
+              example: GTC
+              enum:
+                - GTC
+                - IOC
+                - FOK
+                - GTX
+            q:
+              type: string
+              description: Original Quantity
+              example: "0.001"
+            p:
+              type: string
+              description: Original Price
+              example: "0"
+            ap:
+              type: string
+              description: Average Price
+              example: "0"
+            sp:
+              type: string
+              description: Stop Price
+              example: "7103.04"
+            x:
+              type: string
+              description: Execution Type
+              example: NEW
+              enum:
+                - NEW
+                - CANCELED
+                - CALCULATED
+                - EXPIRED
+                - TRADE
+            X:
+              type: string
+              description: Order Status
+              example: NEW
+              enum:
+                - NEW
+                - PARTIALLY_FILLED
+                - FILLED
+                - CANCELED
+                - EXPIRED
+            i:
+              type: integer
+              description: Order Id
+              example: 8886774
+            l:
+              type: string
+              description: Order Last Filled Quantity
+              example: "0"
+            z:
+              type: string
+              description: Order Filled Accumulated Quantity
+              example: "0"
+            L:
+              type: string
+              description: Last Filled Price
+              example: "0"
+            N:
+              type: string
+              description: Commission Asset
+              example: USDT
+            n:
+              type: string
+              description: Commission
+              example: "0"
+            T:
+              type: integer
+              format: int64
+              description: Order Trade Time (milliseconds)
+              example: 1568879465650
+            t:
+              type: integer
+              format: int64
+              description: Trade Id
+              example: 0
+            b:
+              type: string
+              description: Bids Notional
+              example: "0"
+            a:
+              type: string
+              description: Ask Notional
+              example: "0"
+            m:
+              type: boolean
+              description: Is this trade the maker side
+              example: false
+            R:
+              type: boolean
+              description: Is this reduce only
+              example: false
+            ps:
+              type: string
+              description: Position Side
+              example: LONG
+            rp:
+              type: string
+              description: Realized Profit
+              example: "0"
+            st:
+              type: string
+              description: Stratgy Type
+              example: C_TAKE_PROFIT
+            si:
+              type: integer
+              format: int64
+              description: Strategy Id
+              example: 176057039
+            V:
+              type: string
+              description: Self Trade Prevention Mode
+              example: EXPIRE_TAKER
+            gtd:
+              type: integer
+              format: int64
+              description: Good Till Date
+              example: 0
+    futuresBalancePositionUpdateEvent:
+      type: object
+      description: Futures Balance and Position Update - balance and position update event
+      properties:
+        e:
+          type: string
+          description: Event Type
+          const: ACCOUNT_UPDATE
+          example: ACCOUNT_UPDATE
+        fs:
+          type: string
+          description: Event business unit
+          example: UM
+          enum:
+            - UM
+            - CM
+        E:
+          type: integer
+          format: int64
+          description: Event Time (milliseconds)
+          example: 1564745798939
+        T:
+          type: integer
+          format: int64
+          description: Transaction Time (milliseconds)
+          example: 1564745798938
+        i:
+          type: string
+          description: Account Alias
+          example: ""
+        a:
+          type: object
+          description: Account update details
+          properties:
+            m:
+              type: string
+              description: Event Reason Type
+              example: ORDER
+            B:
+              type: array
+              description: Balances
+              items:
+                type: object
+                properties:
+                  a:
+                    type: string
+                    description: Asset
+                    example: USDT
+                  wb:
+                    type: string
+                    description: Wallet Balance
+                    example: "122624.12345678"
+                  cw:
+                    type: string
+                    description: Cross Wallet Balance
+                    example: "100.12345678"
+                  bc:
+                    type: string
+                    description: Balance Change
+                    example: "50.12345678"
+            P:
+              type: array
+              description: Positions
+              items:
+                type: object
+                properties:
+                  s:
+                    type: string
+                    description: Symbol
+                    example: BTCUSDT
+                  pa:
+                    type: string
+                    description: Position Amount
+                    example: "0"
+                  ep:
+                    type: string
+                    description: Entry Price
+                    example: "0.00000"
+                  cr:
+                    type: string
+                    description: Accumulated Realized
+                    example: "200"
+                  up:
+                    type: string
+                    description: Unrealized PnL
+                    example: "0"
+                  ps:
+                    type: string
+                    description: Position Side
+                    example: BOTH
+                  bep:
+                    type: string
+                    description: Breakeven Price
+                    example: "0.00000"
+    futuresAccountConfigUpdateEvent:
+      type: object
+      description: Futures Account Configuration Update - account configuration update event
+      properties:
+        e:
+          type: string
+          description: Event Type
+          const: ACCOUNT_CONFIG_UPDATE
+          example: ACCOUNT_CONFIG_UPDATE
+        fs:
+          type: string
+          description: Event business unit
+          example: UM
+        E:
+          type: integer
+          format: int64
+          description: Event Time (milliseconds)
+          example: 1611646737479
+        T:
+          type: integer
+          format: int64
+          description: Transaction Time (milliseconds)
+          example: 1611646737476
+        ac:
+          type: object
+          description: Account configuration details
+          properties:
+            s:
+              type: string
+              description: Symbol
+              example: BTCUSD_PERP
+            l:
+              type: integer
+              description: Leverage
+              example: 25
+    riskLevelChangeEvent:
+      type: object
+      description: Risk Level Change - sent when user's position risk ratio is too high
+      properties:
+        e:
+          type: string
+          description: Event Type
+          const: riskLevelChange
+          example: riskLevelChange
+        E:
+          type: integer
+          format: int64
+          description: Event Time (milliseconds)
+          example: 1587727187525
+        u:
+          type: string
+          description: UniMMR level
+          example: "1.99999999"
+        s:
+          type: string
+          description: Risk level status
+          example: MARGIN_CALL
+          enum:
+            - MARGIN_CALL
+            - REDUCE_ONLY
+            - FORCE_LIQUIDATION
+        eq:
+          type: string
+          description: Account equity in USD
+          example: "30.23416728"
+        ae:
+          type: string
+          description: Actual equity without collateral rate in USD
+          example: "30.23416728"
+        m:
+          type: string
+          description: Total maintenance margin in USD
+          example: "15.11708371"
+    marginBalanceUpdateEvent:
+      type: object
+      description: Margin Balance Update - margin balance update event
+      properties:
+        e:
+          type: string
+          description: Event Type
+          const: balanceUpdate
+          example: balanceUpdate
+        E:
+          type: integer
+          format: int64
+          description: Event Time (milliseconds)
+          example: 1573200697110
+        a:
+          type: string
+          description: Asset
+          example: BTC
+        d:
+          type: string
+          description: Balance Delta
+          example: "100.00000000"
+        U:
+          type: integer
+          description: Event Update ID
+          example: 1027053479517
+        T:
+          type: integer
+          format: int64
+          description: Clear Time (milliseconds)
+          example: 1573200697068
+    userDataStreamExpiredEvent:
+      type: object
+      description: User Data Stream Expired - sent when listen key has expired
+      properties:
+        e:
+          type: string
+          description: Event Type
+          const: listenKeyExpired
+          example: listenKeyExpired
+        E:
+          type: integer
+          format: int64
+          description: Event Time (milliseconds)
+          example: 1576653824250
+    errorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: integer
+              description: Error code
+            msg:
+              type: string
+              description: Error message
+        id:
+          type: integer
+          
