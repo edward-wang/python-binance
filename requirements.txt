@@ -1,7 +1,5 @@
-aiohttp
-dateparser
-pycryptodome
-requests
-websockets
-websockets_proxy; python_version >= '3.8'
-beautifulsoup4
+aiohttp>=3.9
+msgspec>=0.18
+orjson>=3.9
+uvloop>=0.19; sys_platform != 'win32'
+pycryptodome>=3.15
