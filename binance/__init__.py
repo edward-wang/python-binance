@@ -1,32 +1,39 @@
-"""An unofficial Python wrapper for the Binance exchange API v3
+"""Binance Python Wrapper
 
-.. moduleauthor:: Sam McHardy
-
+High-performance, async-only Python wrapper for Binance API.
 """
 
-__version__ = "1.0.32"
+__version__ = "2.0.0-dev"
 
-from binance.async_client import AsyncClient  # noqa
-from binance.client import Client  # noqa
+# WebSocket components (preserved)
 from binance.ws.depthcache import (
-    DepthCacheManager,  # noqa
-    OptionsDepthCacheManager,  # noqa
-    ThreadedDepthCacheManager,  # noqa
-    FuturesDepthCacheManager,  # noqa
-    OptionsDepthCacheManager,  # noqa
+    DepthCacheManager,
+    OptionsDepthCacheManager,
+    ThreadedDepthCacheManager,
+    FuturesDepthCacheManager,
 )
 from binance.ws.streams import (
-    BinanceSocketManager,  # noqa
-    ThreadedWebsocketManager,  # noqa
-    BinanceSocketType,  # noqa
+    BinanceSocketManager,
+    ThreadedWebsocketManager,
+    BinanceSocketType,
 )
-
-from binance.ws.keepalive_websocket import KeepAliveWebsocket  # noqa
-
-from binance.ws.reconnecting_websocket import ReconnectingWebsocket  # noqa
-
+from binance.ws.keepalive_websocket import KeepAliveWebsocket
+from binance.ws.reconnecting_websocket import ReconnectingWebsocket
 from binance.ws.constants import *  # noqa
 
+# Exceptions and enums
 from binance.exceptions import *  # noqa
-
 from binance.enums import *  # noqa
+
+__all__ = [
+    # WebSocket
+    "DepthCacheManager",
+    "OptionsDepthCacheManager",
+    "ThreadedDepthCacheManager",
+    "FuturesDepthCacheManager",
+    "BinanceSocketManager",
+    "ThreadedWebsocketManager",
+    "BinanceSocketType",
+    "KeepAliveWebsocket",
+    "ReconnectingWebsocket",
+]
