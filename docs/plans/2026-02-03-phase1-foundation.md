@@ -22,6 +22,8 @@ pip install msgspec orjson aiohttp uvloop pytest pytest-asyncio
 
 ## Task 1: Update Project Dependencies
 
+**Requires:** None (independent task)
+
 **Files:**
 - Modify: `pyproject.toml`
 - Modify: `requirements.txt`
@@ -111,6 +113,8 @@ git commit -m "build: update dependencies for new architecture
 
 ## Task 2: Create _core Package Structure
 
+**Requires:** Task 1 (dependencies installed)
+
 **Files:**
 - Create: `binance/_core/__init__.py`
 - Create: `binance/_schemas/__init__.py`
@@ -157,6 +161,8 @@ git commit -m "feat: create _core and _schemas package structure"
 ---
 
 ## Task 3: Implement _core/config.py
+
+**Requires:** Task 2 (package structure exists)
 
 **Files:**
 - Create: `binance/_core/config.py`
@@ -310,6 +316,8 @@ git commit -m "feat(_core): add config module with URLs and constants"
 ---
 
 ## Task 4: Implement _core/context.py
+
+**Requires:** Task 2 (package structure exists)
 
 **Files:**
 - Create: `binance/_core/context.py`
@@ -481,6 +489,8 @@ git commit -m "feat(_core): add context module with time offset management"
 ---
 
 ## Task 5: Implement _core/exceptions.py
+
+**Requires:** Task 2 (package structure exists)
 
 **Files:**
 - Create: `binance/_core/exceptions.py`
@@ -994,6 +1004,8 @@ git commit -m "feat(_core): add exception hierarchy with error code mapping"
 
 ## Task 6: Implement _core/formatters.py
 
+**Requires:** Task 2 (package structure exists)
+
 **Files:**
 - Create: `binance/_core/formatters.py`
 - Create: `tests/unit/test_formatters.py`
@@ -1148,6 +1160,8 @@ git commit -m "feat(_core): add formatters for price/quantity string conversion"
 
 ## Task 7: Implement _core/decoders.py
 
+**Requires:** Task 2 (package structure exists)
+
 **Files:**
 - Create: `binance/_core/decoders.py`
 - Create: `tests/unit/test_decoders.py`
@@ -1289,6 +1303,8 @@ git commit -m "feat(_core): add pre-compiled msgspec decoder cache"
 ---
 
 ## Task 8: Implement _core/auth.py
+
+**Requires:** Task 4 (imports `binance._core.context`)
 
 **Files:**
 - Create: `binance/_core/auth.py`
@@ -1470,6 +1486,8 @@ git commit -m "feat(_core): add HMAC-SHA256 request signing"
 ---
 
 ## Task 9: Implement _schemas/common.py
+
+**Requires:** Task 2 (package structure exists)
 
 **Files:**
 - Create: `binance/_schemas/common.py`
@@ -1742,6 +1760,8 @@ git commit -m "feat(_schemas): add common types with Literal + Constants pattern
 ---
 
 ## Task 10: Implement _core/http.py
+
+**Requires:** Tasks 3, 4, 5, 8 (imports config, context, auth, exceptions)
 
 **Files:**
 - Create: `binance/_core/http.py`
@@ -2135,6 +2155,8 @@ git commit -m "feat(_core): add async HTTP client with connection pooling"
 
 ## Task 11: Run All Tests and Verify
 
+**Requires:** Tasks 1-10 (all modules implemented)
+
 **Step 1: Run full test suite**
 
 ```bash
@@ -2193,18 +2215,42 @@ After completing all tasks, verify:
 
 ## Summary
 
-| Task | Module | Tests |
-|------|--------|-------|
-| 1 | pyproject.toml, requirements.txt | - |
-| 2 | _core/__init__.py, _schemas/__init__.py | - |
-| 3 | _core/config.py | test_config.py |
-| 4 | _core/context.py | test_context.py |
-| 5 | _core/exceptions.py | test_exceptions.py |
-| 6 | _core/formatters.py | test_formatters.py |
-| 7 | _core/decoders.py | test_decoders.py |
-| 8 | _core/auth.py | test_auth.py |
-| 9 | _schemas/common.py | test_schemas_common.py |
-| 10 | _core/http.py | test_http.py |
-| 11 | Verification | All tests |
+| Task | Module | Tests | Requires |
+|------|--------|-------|----------|
+| 1 | pyproject.toml, requirements.txt | - | None |
+| 2 | _core/__init__.py, _schemas/__init__.py | - | Task 1 |
+| 3 | _core/config.py | test_config.py | Task 2 |
+| 4 | _core/context.py | test_context.py | Task 2 |
+| 5 | _core/exceptions.py | test_exceptions.py | Task 2 |
+| 6 | _core/formatters.py | test_formatters.py | Task 2 |
+| 7 | _core/decoders.py | test_decoders.py | Task 2 |
+| 8 | _core/auth.py | test_auth.py | Task 4 |
+| 9 | _schemas/common.py | test_schemas_common.py | Task 2 |
+| 10 | _core/http.py | test_http.py | Tasks 3,4,5,8 |
+| 11 | Verification | All tests | Tasks 1-10 |
+
+## Dependency Graph
+
+```
+Task 1 (dependencies)
+    │
+    ▼
+Task 2 (package structure)
+    │
+    ├──► Task 3 (config) ─────────────────┐
+    │                                      │
+    ├──► Task 4 (context) ──► Task 8 (auth)┼──► Task 10 (http) ──► Task 11 (verify)
+    │                                      │
+    ├──► Task 5 (exceptions) ─────────────┤
+    │                                      │
+    ├──► Task 6 (formatters)               │
+    │                                      │
+    ├──► Task 7 (decoders)                 │
+    │                                      │
+    └──► Task 9 (schemas/common)           │
+```
+
+**Parallelizable:** Tasks 3, 4, 5, 6, 7, 9 can run in parallel after Task 2.
+**Sequential:** Task 8 requires Task 4. Task 10 requires Tasks 3, 4, 5, 8.
 
 **Total: 11 tasks, ~1,080 lines of implementation code, ~500 lines of tests**
