@@ -14,12 +14,12 @@ Usage:
     klines = decoder.decode(raw_bytes)
 """
 import msgspec
-from typing import TypeVar
+from typing import Any, TypeVar
 
 T = TypeVar("T")
 
 # Decoder cache - maps type to pre-compiled decoder
-_DECODERS: dict[type, msgspec.json.Decoder] = {}
+_DECODERS: dict[type[Any], msgspec.json.Decoder[Any]] = {}
 
 
 def get_decoder(schema_type: type[T]) -> msgspec.json.Decoder[T]:

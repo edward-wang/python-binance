@@ -123,8 +123,8 @@ class HTTPClient:
         method: str,
         path: str,
         signed: bool = False,
-        params: dict | None = None,
-    ) -> dict:
+        params: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Execute HTTP request with error handling.
 
         Args:
@@ -166,9 +166,9 @@ class HTTPClient:
         self,
         method: str,
         url: str,
-        params: dict,
-        headers: dict,
-    ) -> dict:
+        params: dict[str, Any],
+        headers: dict[str, str],
+    ) -> dict[str, Any]:
         """Execute single HTTP request.
 
         Args:
@@ -192,7 +192,7 @@ class HTTPClient:
                 headers=headers,
             ) as response:
                 raw = await response.read()
-                data = orjson.loads(raw) if raw else {}
+                data: dict[str, Any] = orjson.loads(raw) if raw else {}
 
                 # Extract rate limit metadata from headers
                 meta = APIErrorMeta(
@@ -217,7 +217,7 @@ class HTTPClient:
         method: str,
         path: str,
         signed: bool = False,
-        params: dict | None = None,
+        params: dict[str, Any] | None = None,
     ) -> bytes:
         """Execute HTTP request and return raw bytes.
 

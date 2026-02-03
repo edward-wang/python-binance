@@ -8,12 +8,13 @@ All signed requests require:
 """
 import hmac
 import hashlib
+from typing import Any
 from urllib.parse import urlencode
 
 from binance._core.context import context
 
 
-def generate_signature(params: dict, secret: str) -> str:
+def generate_signature(params: dict[str, Any], secret: str) -> str:
     """Generate HMAC-SHA256 signature for request parameters.
 
     Args:
@@ -33,7 +34,7 @@ def generate_signature(params: dict, secret: str) -> str:
     return signature
 
 
-def sign_request(params: dict, secret: str) -> dict:
+def sign_request(params: dict[str, Any], secret: str) -> dict[str, Any]:
     """Add timestamp and signature to request params.
 
     Uses the global context for calibrated timestamp unless

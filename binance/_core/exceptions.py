@@ -7,6 +7,8 @@ Design goals:
 - Self-healing: Auto-retry on timestamp errors
 - Fast: msgspec structs for metadata
 """
+from typing import Any
+
 import msgspec
 
 
@@ -242,7 +244,7 @@ HTTP_STATUS_MAP: dict[int, type[BinanceAPIError]] = {
 
 def raise_for_error(
     status_code: int,
-    response_data: dict,
+    response_data: dict[str, Any],
     meta: APIErrorMeta,
 ) -> None:
     """Raise appropriate exception based on status code and error response.
@@ -260,8 +262,8 @@ def raise_for_error(
         raise exc_class(code=status_code, message=f"HTTP {status_code}", meta=meta)
 
     if "code" in response_data:
-        code = response_data["code"]
-        message = response_data.get("msg", "Unknown error")
+        code = int(response_data["code"])
+        message = str(response_data.get("msg", "Unknown error"))
         exc_class = ERROR_CODE_MAP.get(code, BinanceAPIError)
         raise exc_class(code=code, message=message, meta=meta)
 
