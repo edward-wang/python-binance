@@ -515,6 +515,45 @@ def test_load_overrides():
     assert "semantic_renames" in overrides
     assert "conflict_resolutions" in overrides
     assert overrides["semantic_renames"].get("Depth") == "OrderBook"
+
+
+def test_get_module_for_path_exact_match():
+    """Test module lookup for exact path match."""
+    from generator.config import get_module_for_path
+
+    assert get_module_for_path("/api/v3/klines") == "market"
+    assert get_module_for_path("/api/v3/order") == "trade"
+    assert get_module_for_path("/api/v3/account") == "account"
+
+
+def test_get_module_for_path_prefix_match():
+    """Test module lookup for prefix match."""
+    from generator.config import get_module_for_path
+
+    # These start with known prefixes
+    assert get_module_for_path("/api/v3/ticker/24hr") == "market"
+    assert get_module_for_path("/api/v3/order/test") == "trade"
+
+
+def test_get_module_for_path_keyword_inference():
+    """Test module inference from path keywords (for unknown paths)."""
+    from generator.config import get_module_for_path
+
+    # New paths not in PATH_TO_MODULE but containing keywords
+    assert get_module_for_path("/api/v4/newTicker") == "market"
+    assert get_module_for_path("/api/v4/userBalance") == "account"
+    assert get_module_for_path("/api/v4/cancelOrder") == "trade"
+
+
+def test_get_module_for_path_defaults():
+    """Test default module assignment."""
+    from generator.config import get_module_for_path
+
+    # sapi endpoints default to 'other'
+    assert get_module_for_path("/sapi/v1/something") == "other"
+
+    # Unknown core API endpoints default to 'general'
+    assert get_module_for_path("/api/v5/unknown") == "general"
 ```
 
 **Step 2: Run test to verify it fails**
@@ -801,6 +840,20 @@ PATH_TO_MODULE: dict[str, str] = {
     "/api/v3/rateLimit/order": "account",
 }
 
+# Default module inference based on path keywords
+MODULE_KEYWORDS: dict[str, str] = {
+    "trade": "trade",
+    "order": "trade",
+    "account": "account",
+    "balance": "account",
+    "asset": "account",
+    "ticker": "market",
+    "price": "market",
+    "depth": "market",
+    "kline": "market",
+    "candle": "market",
+}
+
 
 def get_module_for_path(path: str) -> str:
     """Determine which module an endpoint belongs to.
@@ -820,11 +873,17 @@ def get_module_for_path(path: str) -> str:
         if path.startswith(prefix):
             return module
 
-    # Default to 'other' for sapi endpoints
+    # Infer module from path keywords (for new/unknown endpoints)
+    path_lower = path.lower()
+    for keyword, module in MODULE_KEYWORDS.items():
+        if keyword in path_lower:
+            return module
+
+    # Default to 'general' for core API, 'other' for sapi
     if "/sapi/" in path:
         return "other"
 
-    return "other"
+    return "general"
 ```
 
 **Step 5: Run test to verify it passes**

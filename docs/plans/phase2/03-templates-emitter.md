@@ -325,7 +325,7 @@ async def {{ endpoint.method_name }}(
     {% endfor %}
     {% endif %}
     """
-    params: dict[str, str | int | float | bool] = {}
+    params: dict[str, Any] = {}
     {% for param in endpoint.parameters %}
     {% if param.required %}
     params["{{ param.name }}"] = {{ param.py_name }}

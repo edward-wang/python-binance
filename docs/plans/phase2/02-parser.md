@@ -58,17 +58,33 @@ def test_is_signed_endpoint():
     """Test detecting signed endpoints."""
     from generator.parser import is_signed_endpoint
 
-    # Unsigned
+    # Unsigned - no security, no timestamp
     operation = {"parameters": [{"name": "symbol"}]}
     assert is_signed_endpoint(operation) is False
 
-    # Signed with security
+    # Signed with security section (primary indicator)
     operation = {"security": [{"ApiKey": []}]}
     assert is_signed_endpoint(operation) is True
 
-    # Signed with timestamp param
+    # Signed with timestamp param (secondary indicator)
     operation = {"parameters": [{"name": "timestamp", "required": True}]}
     assert is_signed_endpoint(operation) is True
+
+    # Signed with requestBody schema (tertiary indicator for POST/PUT)
+    operation = {
+        "requestBody": {
+            "content": {
+                "application/x-www-form-urlencoded": {
+                    "schema": {"$ref": "#/components/schemas/CreateOrderReq"}
+                }
+            }
+        }
+    }
+    assert is_signed_endpoint(operation) is True
+
+    # Unsigned timestamp (not required)
+    operation = {"parameters": [{"name": "timestamp", "required": False}]}
+    assert is_signed_endpoint(operation) is False
 ```
 
 **Step 2: Run test to verify it fails**
@@ -113,20 +129,30 @@ def extract_path_and_method(
 
 
 def is_signed_endpoint(operation: dict[str, Any]) -> bool:
-    """Determine if endpoint requires signature."""
+    """Determine if endpoint requires signature.
+
+    Detection priority:
+    1. Primary: 'security' section present (OpenAPI standard)
+    2. Secondary: Required 'timestamp' parameter (Binance convention)
+    3. Tertiary: POST/PUT with requestBody schema (likely signed)
+    """
+    # Primary: Check security section (most reliable)
     if "security" in operation:
         return True
 
+    # Secondary: Check for timestamp in query parameters
     for param in operation.get("parameters", []):
         if param.get("name") == "timestamp" and param.get("required"):
             return True
 
+    # Tertiary: Check for requestBody with schema (POST/PUT endpoints)
+    # These typically require signature in Binance API
     request_body = operation.get("requestBody", {})
-    content = request_body.get("content", {})
-    form_data = content.get("application/x-www-form-urlencoded", {})
-    schema_ref = form_data.get("schema", {}).get("$ref", "")
-    if schema_ref:
-        return True
+    if request_body:
+        content = request_body.get("content", {})
+        for content_type, media in content.items():
+            if media.get("schema"):
+                return True
 
     return False
 ```
@@ -211,6 +237,41 @@ def test_parse_parameter_with_enum():
     assert param.enum == ["1m", "5m", "1h", "1d"]
 
 
+def test_parse_parameter_with_ref():
+    """Test parsing parameter with $ref schema."""
+    from generator.parser import parse_parameter
+
+    param_data = {
+        "name": "orderType",
+        "in": "query",
+        "required": True,
+        "schema": {"$ref": "#/components/schemas/OrderType"}
+    }
+
+    param = parse_parameter(param_data)
+
+    assert param.type == "OrderType"
+    assert param.required is True
+
+
+def test_parse_parameter_with_array():
+    """Test parsing array parameter."""
+    from generator.parser import parse_parameter
+
+    param_data = {
+        "name": "symbols",
+        "in": "query",
+        "schema": {
+            "type": "array",
+            "items": {"type": "string"}
+        }
+    }
+
+    param = parse_parameter(param_data)
+
+    assert param.type == "list[str]"
+
+
 def test_parse_parameters():
     """Test parsing all parameters for an operation."""
     from generator.parser import parse_parameters
@@ -244,18 +305,21 @@ from generator.config import TYPE_MAP, to_snake_case
 
 
 def parse_parameter(param_data: dict[str, Any]) -> Parameter:
-    """Parse a single parameter definition."""
+    """Parse a single parameter definition.
+
+    Handles regular types, arrays, and $ref schemas.
+    """
     name = param_data["name"]
     schema = param_data.get("schema", {})
 
-    type_str = schema.get("type", "string")
-    format_str = schema.get("format")
-    py_type = TYPE_MAP.get((type_str, format_str), TYPE_MAP.get((type_str, None), "Any"))
-
-    if type_str == "array":
-        items = schema.get("items", {})
-        item_type = items.get("type", "str")
-        py_type = f"list[{TYPE_MAP.get((item_type, None), 'Any')}]"
+    # Handle $ref in parameter schema (reuse resolve_type for consistency)
+    if "$ref" in schema:
+        # For $ref parameters, extract the type name
+        ref_name = schema["$ref"].split("/")[-1]
+        py_type = to_class_name(ref_name)
+    else:
+        # Use resolve_type for consistent type resolution
+        py_type = resolve_type(schema)
 
     return Parameter(
         name=name,
@@ -575,6 +639,113 @@ POST/PUT endpoints often define parameters in `requestBody` instead of `paramete
 ```python
 # Add to tests/unit/generator/test_parser.py
 
+def test_get_response_schema_ref_200():
+    """Test extracting response schema from 200 response."""
+    from generator.parser import get_response_schema_ref
+
+    operation = {
+        "responses": {
+            "200": {
+                "content": {
+                    "application/json": {
+                        "schema": {"$ref": "#/components/schemas/OrderResult"}
+                    }
+                }
+            }
+        }
+    }
+
+    ref = get_response_schema_ref(operation)
+    assert ref == "OrderResult"
+
+
+def test_get_response_schema_ref_201():
+    """Test extracting response schema from 201 (created) response."""
+    from generator.parser import get_response_schema_ref
+
+    operation = {
+        "responses": {
+            "201": {
+                "content": {
+                    "application/json": {
+                        "schema": {"$ref": "#/components/schemas/CreatedResource"}
+                    }
+                }
+            }
+        }
+    }
+
+    ref = get_response_schema_ref(operation)
+    assert ref == "CreatedResource"
+
+
+def test_get_response_schema_ref_default():
+    """Test extracting response schema from default response."""
+    from generator.parser import get_response_schema_ref
+
+    operation = {
+        "responses": {
+            "default": {
+                "content": {
+                    "application/json": {
+                        "schema": {"$ref": "#/components/schemas/APIResponse"}
+                    }
+                }
+            }
+        }
+    }
+
+    ref = get_response_schema_ref(operation)
+    assert ref == "APIResponse"
+
+
+def test_get_response_schema_ref_json_charset():
+    """Test extracting response schema with charset in content type."""
+    from generator.parser import get_response_schema_ref
+
+    operation = {
+        "responses": {
+            "200": {
+                "content": {
+                    "application/json;charset=utf-8": {
+                        "schema": {"$ref": "#/components/schemas/Result"}
+                    }
+                }
+            }
+        }
+    }
+
+    ref = get_response_schema_ref(operation)
+    assert ref == "Result"
+
+
+def test_get_response_schema_ref_priority():
+    """Test that 200 takes priority over default."""
+    from generator.parser import get_response_schema_ref
+
+    operation = {
+        "responses": {
+            "default": {
+                "content": {
+                    "application/json": {
+                        "schema": {"$ref": "#/components/schemas/DefaultSchema"}
+                    }
+                }
+            },
+            "200": {
+                "content": {
+                    "application/json": {
+                        "schema": {"$ref": "#/components/schemas/SuccessSchema"}
+                    }
+                }
+            }
+        }
+    }
+
+    ref = get_response_schema_ref(operation)
+    assert ref == "SuccessSchema"
+
+
 def test_parse_request_body():
     """Test parsing requestBody parameters (POST endpoints)."""
     from generator.parser import parse_request_body
@@ -682,21 +853,66 @@ Expected: FAIL
 from generator.config import to_method_name, to_class_name, get_module_for_path
 
 
+# Success response codes to check (in priority order)
+SUCCESS_CODES = ["200", "201", "202", "default"]
+
+
 def get_response_schema_ref(operation: dict[str, Any]) -> str | None:
-    """Extract response schema reference from operation."""
+    """Extract response schema reference from operation.
+
+    Iterates through success codes (200, 201, 202, default) and finds the first
+    response with a JSON-like content type that has a schema.
+    """
     responses = operation.get("responses", {})
-    success_response = responses.get("200", {})
-    content = success_response.get("content", {})
-    json_content = content.get("application/json", {})
-    schema = json_content.get("schema", {})
 
-    if "$ref" in schema:
-        return schema["$ref"].split("/")[-1]
+    for code in SUCCESS_CODES:
+        if code not in responses:
+            continue
 
-    if schema.get("type") == "array":
-        items = schema.get("items", {})
-        if "$ref" in items:
-            return items["$ref"].split("/")[-1]
+        content = responses[code].get("content", {})
+
+        # Match any JSON-like content type (application/json, application/json;charset=utf-8)
+        for content_type, media in content.items():
+            if content_type.startswith("application/json"):
+                schema = media.get("schema", {})
+
+                if "$ref" in schema:
+                    return schema["$ref"].split("/")[-1]
+
+                if schema.get("type") == "array":
+                    items = schema.get("items", {})
+                    if "$ref" in items:
+                        return items["$ref"].split("/")[-1]
+
+                # Found a JSON response but no $ref - still valid, just no schema type
+                if schema:
+                    return None
+
+    return None
+
+
+def get_first_content_schema(content: dict[str, Any]) -> dict[str, Any] | None:
+    """Get the first content schema from a content dict.
+
+    Prioritizes form-urlencoded, then JSON-like types, then any type with a schema.
+    """
+    # Priority order for content types
+    priority_prefixes = [
+        "application/x-www-form-urlencoded",
+        "application/json",
+    ]
+
+    # Check priority types first
+    for prefix in priority_prefixes:
+        for content_type, media in content.items():
+            if content_type.startswith(prefix):
+                if schema := media.get("schema"):
+                    return schema
+
+    # Fall back to any content type with a schema
+    for content_type, media in content.items():
+        if schema := media.get("schema"):
+            return schema
 
     return None
 
@@ -705,25 +921,26 @@ def parse_request_body(
     operation: dict[str, Any],
     components: dict[str, Any],
 ) -> list[Parameter]:
-    """Parse parameters from requestBody (for POST/PUT endpoints)."""
+    """Parse parameters from requestBody (for POST/PUT endpoints).
+
+    Handles $ref chains and selects the first content type with a schema.
+    """
     request_body = operation.get("requestBody", {})
     if not request_body:
         return []
 
     content = request_body.get("content", {})
-    form_data = content.get("application/x-www-form-urlencoded", {})
-    json_data = content.get("application/json", {})
+    schema_data = get_first_content_schema(content)
 
-    schema_data = form_data.get("schema", {}) or json_data.get("schema", {})
     if not schema_data:
         return []
 
-    if "$ref" in schema_data:
+    # Resolve $ref chain
+    while "$ref" in schema_data:
         ref_name = schema_data["$ref"].split("/")[-1]
         schema_data = components.get("schemas", {}).get(ref_name, {})
-
-    if not schema_data:
-        return []
+        if not schema_data:
+            return []
 
     params: list[Parameter] = []
     required_list = schema_data.get("required", [])
@@ -913,10 +1130,24 @@ def collect_schema_mappings(
     return mappings
 
 
+def schemas_structurally_equal(a: Schema, b: Schema) -> bool:
+    """Check if two schemas have the same structure (property names and types)."""
+    if len(a.properties) != len(b.properties):
+        return False
+    a_props = {p.name: p.type for p in a.properties}
+    b_props = {p.name: p.type for p in b.properties}
+    return a_props == b_props
+
+
 def deduplicate_schemas(
     schemas_list: list[dict[str, Schema]],
+    errors: list[ParseError] | None = None,
 ) -> dict[str, Schema]:
-    """Deduplicate schemas from multiple endpoints."""
+    """Deduplicate schemas from multiple endpoints.
+
+    When schemas with the same name have different structures, logs a warning
+    and keeps the schema with more properties.
+    """
     result: dict[str, Schema] = {}
 
     for schemas in schemas_list:
@@ -925,8 +1156,22 @@ def deduplicate_schemas(
 
             if clean_name not in result:
                 result[clean_name] = schema
-            elif len(schema.properties) > len(result[clean_name].properties):
-                result[clean_name] = schema
+            else:
+                existing = result[clean_name]
+                # Check for structural conflict
+                if not schemas_structurally_equal(existing, schema):
+                    if errors is not None:
+                        errors.append(ParseError(
+                            file=None,
+                            severity=ParseErrorSeverity.WARNING,
+                            message=(
+                                f"Schema '{clean_name}' has conflicting structures: "
+                                f"{len(existing.properties)} vs {len(schema.properties)} properties"
+                            ),
+                        ))
+                    # Keep the one with more properties
+                    if len(schema.properties) > len(existing.properties):
+                        result[clean_name] = schema
 
     return result
 
@@ -993,7 +1238,7 @@ def parse_spec_directory(
     conflicts = detect_naming_conflicts(mappings)
     errors.extend(create_conflict_errors(conflicts))
 
-    deduped_schemas = deduplicate_schemas(all_schemas)
+    deduped_schemas = deduplicate_schemas(all_schemas, errors)
 
     spec = ParsedSpec(
         name=name,
