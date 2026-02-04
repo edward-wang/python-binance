@@ -9,7 +9,13 @@ from typing import Any
 
 import yaml
 
-from generator.config import TYPE_MAP, to_snake_case, to_class_name
+from generator.config import (
+    TYPE_MAP,
+    to_snake_case,
+    to_class_name,
+    to_method_name,
+    get_module_for_path,
+)
 from generator.models import Parameter, Property, Schema, Endpoint
 
 
@@ -241,3 +247,187 @@ def parse_schema(
         item_type=item_type,
         raw_type=raw_type,
     )
+
+
+# Success response codes to check (in priority order)
+SUCCESS_CODES = ["200", "201", "202", "default"]
+
+
+def get_response_schema_ref(operation: dict[str, Any]) -> str | None:
+    """Extract response schema reference from operation.
+
+    Iterates through success codes (200, 201, 202, default) and finds the first
+    response with a JSON-like content type that has a schema.
+    """
+    responses = operation.get("responses", {})
+
+    for code in SUCCESS_CODES:
+        if code not in responses:
+            continue
+
+        content = responses[code].get("content", {})
+
+        # Match any JSON-like content type (application/json, application/json;charset=utf-8)
+        for content_type, media in content.items():
+            if content_type.startswith("application/json"):
+                schema = media.get("schema", {})
+
+                if "$ref" in schema:
+                    return schema["$ref"].split("/")[-1]
+
+                if schema.get("type") == "array":
+                    items = schema.get("items", {})
+                    if "$ref" in items:
+                        return items["$ref"].split("/")[-1]
+
+                # Found a JSON response but no $ref - still valid, just no schema type
+                if schema:
+                    return None
+
+    return None
+
+
+def get_first_content_schema(content: dict[str, Any]) -> dict[str, Any] | None:
+    """Get the first content schema from a content dict.
+
+    Prioritizes form-urlencoded, then JSON-like types, then any type with a schema.
+    """
+    # Priority order for content types
+    priority_prefixes = [
+        "application/x-www-form-urlencoded",
+        "application/json",
+    ]
+
+    # Check priority types first
+    for prefix in priority_prefixes:
+        for content_type, media in content.items():
+            if content_type.startswith(prefix):
+                if schema := media.get("schema"):
+                    return schema
+
+    # Fall back to any content type with a schema
+    for content_type, media in content.items():
+        if schema := media.get("schema"):
+            return schema
+
+    return None
+
+
+def parse_request_body(
+    operation: dict[str, Any],
+    components: dict[str, Any],
+) -> list[Parameter]:
+    """Parse parameters from requestBody (for POST/PUT endpoints).
+
+    Handles $ref chains and selects the first content type with a schema.
+    """
+    request_body = operation.get("requestBody", {})
+    if not request_body:
+        return []
+
+    content = request_body.get("content", {})
+    schema_data = get_first_content_schema(content)
+
+    if not schema_data:
+        return []
+
+    # Resolve $ref chain
+    while "$ref" in schema_data:
+        ref_name = schema_data["$ref"].split("/")[-1]
+        schema_data = components.get("schemas", {}).get(ref_name, {})
+        if not schema_data:
+            return []
+
+    params: list[Parameter] = []
+    required_list = schema_data.get("required", [])
+
+    for prop_name, prop_data in schema_data.get("properties", {}).items():
+        if prop_name in ("timestamp", "signature"):
+            continue
+
+        params.append(Parameter(
+            name=prop_name,
+            py_name=to_snake_case(prop_name),
+            type=resolve_type(prop_data),
+            required=prop_name in required_list,
+            default=prop_data.get("default"),
+            description=prop_data.get("description", ""),
+        ))
+
+    return params
+
+
+def get_rate_limit_weight(operation: dict[str, Any]) -> int:
+    """Extract rate limit weight from x-weight extension.
+
+    Args:
+        operation: OpenAPI operation object
+
+    Returns:
+        Weight value (defaults to 1 if not specified)
+    """
+    # Check for x-weight extension (Binance custom extension)
+    weight = operation.get("x-weight", 1)
+    if isinstance(weight, int):
+        return weight
+    # Some specs may have weight as string
+    if isinstance(weight, str) and weight.isdigit():
+        return int(weight)
+    return 1
+
+
+def parse_endpoint(
+    data: dict[str, Any],
+) -> tuple[Endpoint, dict[str, Schema]]:
+    """Parse a single endpoint file data."""
+    path, method, operation = extract_path_and_method(data)
+
+    schemas: dict[str, Schema] = {}
+    components = data.get("components", {})
+    schema_defs = components.get("schemas", {})
+
+    for schema_name, schema_data in schema_defs.items():
+        if schema_name == "APIError" or schema_name.endswith("Req"):
+            continue
+        clean_name = to_class_name(schema_name)
+        schemas[schema_name] = parse_schema(clean_name, schema_name, schema_data)
+
+    response_ref = get_response_schema_ref(operation)
+    response_schema: str | None = None
+    is_array_response = False
+    raw_response_type: str | None = None
+
+    if response_ref and response_ref in schemas:
+        schema = schemas[response_ref]
+        response_schema = schema.name
+        is_array_response = schema.is_array
+        raw_response_type = schema.raw_type
+
+    # Merge query parameters and body parameters
+    query_params = parse_parameters(operation)
+    body_params = parse_request_body(operation, components)
+    all_params = query_params + body_params
+    all_params.sort(key=lambda p: (not p.required, p.name))
+
+    endpoint = Endpoint(
+        operation_id=operation["operationId"],
+        method_name=to_method_name(operation["operationId"]),
+        http_method=method,
+        path=path,
+        parameters=all_params,
+        response_schema=response_schema,
+        is_array_response=is_array_response,
+        requires_signature=is_signed_endpoint(operation),
+        description=operation.get("description", operation.get("summary", "")),
+        module=get_module_for_path(path),
+        raw_response_type=raw_response_type,
+        weight=get_rate_limit_weight(operation),
+    )
+
+    return endpoint, schemas
+
+
+def parse_endpoint_file(file_path: Path) -> tuple[Endpoint, dict[str, Schema]]:
+    """Parse a single endpoint YAML file."""
+    data = parse_yaml_file(file_path)
+    return parse_endpoint(data)

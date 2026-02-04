@@ -311,3 +311,210 @@ def test_parse_schema_array_of_ref():
 
     assert schema.is_array is True
     assert schema.item_type == "TradeItem"
+
+
+def test_get_response_schema_ref_200():
+    """Test extracting response schema from 200 response."""
+    from generator.parser import get_response_schema_ref
+
+    operation = {
+        "responses": {
+            "200": {
+                "content": {
+                    "application/json": {
+                        "schema": {"$ref": "#/components/schemas/OrderResult"}
+                    }
+                }
+            }
+        }
+    }
+
+    ref = get_response_schema_ref(operation)
+    assert ref == "OrderResult"
+
+
+def test_get_response_schema_ref_default():
+    """Test extracting response schema from default response."""
+    from generator.parser import get_response_schema_ref
+
+    operation = {
+        "responses": {
+            "default": {
+                "content": {
+                    "application/json": {
+                        "schema": {"$ref": "#/components/schemas/APIResponse"}
+                    }
+                }
+            }
+        }
+    }
+
+    ref = get_response_schema_ref(operation)
+    assert ref == "APIResponse"
+
+
+def test_get_response_schema_ref_json_charset():
+    """Test extracting response schema with charset in content type."""
+    from generator.parser import get_response_schema_ref
+
+    operation = {
+        "responses": {
+            "200": {
+                "content": {
+                    "application/json;charset=utf-8": {
+                        "schema": {"$ref": "#/components/schemas/Result"}
+                    }
+                }
+            }
+        }
+    }
+
+    ref = get_response_schema_ref(operation)
+    assert ref == "Result"
+
+
+def test_parse_request_body():
+    """Test parsing requestBody parameters (POST endpoints)."""
+    from generator.parser import parse_request_body
+
+    components = {
+        "schemas": {
+            "CreateOrderReq": {
+                "type": "object",
+                "properties": {
+                    "symbol": {"type": "string"},
+                    "side": {"type": "string"},
+                    "quantity": {"type": "string"},
+                    "timestamp": {"type": "integer"},
+                },
+                "required": ["symbol", "side", "timestamp"]
+            }
+        }
+    }
+
+    operation = {
+        "requestBody": {
+            "content": {
+                "application/x-www-form-urlencoded": {
+                    "schema": {"$ref": "#/components/schemas/CreateOrderReq"}
+                }
+            }
+        }
+    }
+
+    params = parse_request_body(operation, components)
+
+    assert len(params) == 3  # timestamp excluded
+    param_names = [p.name for p in params]
+    assert "symbol" in param_names
+    assert "timestamp" not in param_names
+
+
+def test_parse_endpoint():
+    """Test parsing a complete endpoint."""
+    from generator.parser import parse_endpoint
+
+    data = {
+        "components": {
+            "schemas": {
+                "GetKlinesResp": {
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "oneOf": [
+                                {"type": "integer"},
+                                {"type": "string"}
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "paths": {
+            "/api/v3/klines": {
+                "get": {
+                    "operationId": "GetKlinesV3",
+                    "parameters": [
+                        {"name": "symbol", "in": "query", "required": True, "schema": {"type": "string"}},
+                        {"name": "interval", "in": "query", "required": True, "schema": {"type": "string"}},
+                    ],
+                    "responses": {
+                        "200": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/GetKlinesResp"}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    endpoint, schemas = parse_endpoint(data)
+
+    assert endpoint.method_name == "get_klines"
+    assert endpoint.http_method == "GET"
+    assert endpoint.path == "/api/v3/klines"
+    assert len(endpoint.parameters) == 2
+    assert endpoint.requires_signature is False
+    assert endpoint.module == "market"
+
+
+def test_parse_post_endpoint():
+    """Test parsing POST endpoint with requestBody."""
+    from generator.parser import parse_endpoint
+
+    data = {
+        "components": {
+            "schemas": {
+                "CreateOrderReq": {
+                    "type": "object",
+                    "properties": {
+                        "symbol": {"type": "string"},
+                        "side": {"type": "string"},
+                        "timestamp": {"type": "integer"},
+                    },
+                    "required": ["symbol", "side", "timestamp"]
+                },
+                "CreateOrderResp": {
+                    "type": "object",
+                    "properties": {"orderId": {"type": "integer"}}
+                }
+            },
+            "securitySchemes": {"ApiKey": {"type": "apiKey"}}
+        },
+        "paths": {
+            "/api/v3/order": {
+                "post": {
+                    "operationId": "CreateOrderV3",
+                    "security": [{"ApiKey": []}],
+                    "requestBody": {
+                        "content": {
+                            "application/x-www-form-urlencoded": {
+                                "schema": {"$ref": "#/components/schemas/CreateOrderReq"}
+                            }
+                        }
+                    },
+                    "responses": {
+                        "200": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/CreateOrderResp"}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    endpoint, schemas = parse_endpoint(data)
+
+    assert endpoint.method_name == "create_order"
+    assert endpoint.http_method == "POST"
+    assert endpoint.requires_signature is True
+    assert len(endpoint.parameters) == 2  # symbol, side (timestamp excluded)
