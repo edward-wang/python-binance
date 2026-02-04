@@ -16,7 +16,16 @@ from generator.config import (
     to_method_name,
     get_module_for_path,
 )
-from generator.models import Parameter, Property, Schema, Endpoint
+from generator.models import (
+    Parameter,
+    Property,
+    Schema,
+    Endpoint,
+    ParsedSpec,
+    ParseError,
+    ParseErrorSeverity,
+    ParseResult,
+)
 
 
 def parse_yaml_file(file_path: Path) -> dict[str, Any]:
@@ -431,3 +440,64 @@ def parse_endpoint_file(file_path: Path) -> tuple[Endpoint, dict[str, Schema]]:
     """Parse a single endpoint YAML file."""
     data = parse_yaml_file(file_path)
     return parse_endpoint(data)
+
+
+def parse_spec_directory(spec_dir: Path, name: str) -> ParseResult:
+    """Parse all YAML files in a spec directory.
+
+    Args:
+        spec_dir: Path to directory containing endpoint YAML files
+        name: Name for this spec (e.g., "spot", "umfutures")
+
+    Returns:
+        ParseResult containing parsed spec and any errors/warnings
+    """
+    endpoints: list[Endpoint] = []
+    schemas: dict[str, Schema] = {}
+    errors: list[ParseError] = []
+
+    # Find all YAML files
+    yaml_files = sorted(spec_dir.glob("*.yaml"))
+
+    for file_path in yaml_files:
+        try:
+            endpoint, file_schemas = parse_endpoint_file(file_path)
+            endpoints.append(endpoint)
+
+            # Deduplicate schemas by original_name
+            for schema_name, schema in file_schemas.items():
+                if schema_name not in schemas:
+                    schemas[schema_name] = schema
+
+        except ValueError as e:
+            # Expected errors (e.g., missing paths)
+            errors.append(ParseError(
+                file=file_path,
+                severity=ParseErrorSeverity.WARNING,
+                message=str(e),
+                exception=e,
+            ))
+        except KeyError as e:
+            # Missing required fields
+            errors.append(ParseError(
+                file=file_path,
+                severity=ParseErrorSeverity.WARNING,
+                message=f"Missing required field: {e}",
+                exception=e,
+            ))
+        except Exception as e:
+            # Unexpected errors
+            errors.append(ParseError(
+                file=file_path,
+                severity=ParseErrorSeverity.ERROR,
+                message=f"Unexpected error: {e}",
+                exception=e,
+            ))
+
+    spec = ParsedSpec(
+        name=name,
+        endpoints=endpoints,
+        schemas=schemas,
+    )
+
+    return ParseResult(spec=spec, errors=errors)

@@ -518,3 +518,189 @@ def test_parse_post_endpoint():
     assert endpoint.http_method == "POST"
     assert endpoint.requires_signature is True
     assert len(endpoint.parameters) == 2  # symbol, side (timestamp excluded)
+
+
+def test_parse_spec_directory(tmp_path):
+    """Test parsing all YAML files in a spec directory."""
+    from generator.parser import parse_spec_directory
+    from generator.models import ParseErrorSeverity
+
+    # Create test spec files
+    spec1 = tmp_path / "get_klines.yaml"
+    spec1.write_text("""
+openapi: 3.0.0
+paths:
+  /api/v3/klines:
+    get:
+      operationId: GetKlinesV3
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetKlinesResp'
+components:
+  schemas:
+    GetKlinesResp:
+      type: array
+      items:
+        type: array
+        items:
+          type: string
+""")
+
+    spec2 = tmp_path / "get_ticker.yaml"
+    spec2.write_text("""
+openapi: 3.0.0
+paths:
+  /api/v3/ticker/price:
+    get:
+      operationId: GetTickerPriceV3
+      parameters:
+        - name: symbol
+          in: query
+          schema:
+            type: string
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TickerPrice'
+components:
+  schemas:
+    TickerPrice:
+      type: object
+      properties:
+        symbol:
+          type: string
+        price:
+          type: string
+""")
+
+    result = parse_spec_directory(tmp_path, "test")
+
+    assert result.spec.name == "test"
+    assert len(result.spec.endpoints) == 2
+    assert len(result.spec.schemas) >= 2
+    assert result.error_count == 0
+
+
+def test_parse_spec_directory_with_errors(tmp_path):
+    """Test directory parsing handles errors gracefully."""
+    from generator.parser import parse_spec_directory
+    from generator.models import ParseErrorSeverity
+
+    # Valid spec
+    valid = tmp_path / "valid.yaml"
+    valid.write_text("""
+openapi: 3.0.0
+paths:
+  /api/v3/time:
+    get:
+      operationId: GetServerTimeV3
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerTime'
+components:
+  schemas:
+    ServerTime:
+      type: object
+      properties:
+        serverTime:
+          type: integer
+""")
+
+    # Invalid spec (missing paths)
+    invalid = tmp_path / "invalid.yaml"
+    invalid.write_text("""
+openapi: 3.0.0
+components:
+  schemas: {}
+""")
+
+    result = parse_spec_directory(tmp_path, "test")
+
+    assert len(result.spec.endpoints) == 1  # Only valid endpoint
+    assert result.warning_count >= 1  # At least one warning for invalid file
+
+
+def test_parse_spec_directory_deduplicates_schemas(tmp_path):
+    """Test that schemas are deduplicated across files."""
+    from generator.parser import parse_spec_directory
+
+    # Two specs with the same schema name
+    spec1 = tmp_path / "spec1.yaml"
+    spec1.write_text("""
+openapi: 3.0.0
+paths:
+  /api/v3/trades:
+    get:
+      operationId: GetTradesV3
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trade'
+components:
+  schemas:
+    Trade:
+      type: object
+      properties:
+        id:
+          type: integer
+        price:
+          type: string
+""")
+
+    spec2 = tmp_path / "spec2.yaml"
+    spec2.write_text("""
+openapi: 3.0.0
+paths:
+  /api/v3/myTrades:
+    get:
+      operationId: GetMyTradesV3
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trade'
+components:
+  schemas:
+    Trade:
+      type: object
+      properties:
+        id:
+          type: integer
+        price:
+          type: string
+""")
+
+    result = parse_spec_directory(tmp_path, "test")
+
+    assert len(result.spec.endpoints) == 2
+    # Trade schema should be deduplicated
+    trade_schemas = [s for s in result.spec.schemas.values() if "Trade" in s.original_name]
+    assert len(trade_schemas) == 1
+
+
+def test_parse_spec_directory_empty(tmp_path):
+    """Test parsing empty directory."""
+    from generator.parser import parse_spec_directory
+
+    result = parse_spec_directory(tmp_path, "empty")
+
+    assert result.spec.name == "empty"
+    assert len(result.spec.endpoints) == 0
+    assert len(result.spec.schemas) == 0
