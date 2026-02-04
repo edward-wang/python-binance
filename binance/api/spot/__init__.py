@@ -8,6 +8,6 @@ Modules:
 
 All methods return msgspec schema types for type safety.
 """
-from binance.api.spot import general, market, trade, account
+from binance.api.spot import account, general, market, trade
 
 __all__ = ["general", "market", "trade", "account"]

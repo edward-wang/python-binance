@@ -8,14 +8,14 @@ import msgspec
 
 from binance._core.http import HTTPClient
 from binance._schemas.spot import (
-    OrderBook,
-    Trade,
     AggTrade,
     AvgPrice,
+    BookTicker,
     Kline,
+    OrderBook,
     Ticker24h,
     TickerPrice,
-    BookTicker,
+    Trade,
 )
 
 # Pre-compiled decoders for performance

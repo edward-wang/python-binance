@@ -7,7 +7,7 @@ from typing import Any
 import msgspec
 
 from binance._core.http import HTTPClient
-from binance._schemas.spot import ServerTime, ExchangeInfo
+from binance._schemas.spot import ExchangeInfo, ServerTime
 
 # Pre-compiled decoders for performance
 _server_time_decoder = msgspec.json.Decoder(ServerTime)

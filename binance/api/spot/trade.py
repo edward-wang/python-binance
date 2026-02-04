@@ -7,7 +7,7 @@ from typing import Any
 import msgspec
 
 from binance._core.http import HTTPClient
-from binance._schemas.spot import Order, QueryOrder, CancelOrderResult
+from binance._schemas.spot import CancelOrderResult, Order, QueryOrder
 
 # Pre-compiled decoders for performance
 _order_decoder = msgspec.json.Decoder(Order)
