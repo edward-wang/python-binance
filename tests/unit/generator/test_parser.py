@@ -170,3 +170,144 @@ def test_parse_parameters():
     assert len(params) == 2
     assert params[0].name == "symbol"
     assert params[1].default == 500
+
+
+def test_resolve_type_basic():
+    """Test resolving basic types."""
+    from generator.parser import resolve_type
+
+    assert resolve_type({"type": "string"}) == "str"
+    assert resolve_type({"type": "integer"}) == "int"
+    assert resolve_type({"type": "integer", "format": "int64"}) == "int"
+    assert resolve_type({"type": "boolean"}) == "bool"
+    assert resolve_type({"type": "number"}) == "float"
+
+
+def test_resolve_type_array():
+    """Test resolving array types."""
+    from generator.parser import resolve_type
+
+    assert resolve_type({
+        "type": "array",
+        "items": {"type": "string"}
+    }) == "list[str]"
+
+
+def test_resolve_type_nested_array():
+    """Test resolving nested array types."""
+    from generator.parser import resolve_type
+
+    schema = {
+        "type": "array",
+        "items": {
+            "type": "array",
+            "items": {"type": "string"}
+        }
+    }
+    assert resolve_type(schema) == "list[list[str]]"
+
+
+def test_resolve_type_oneof():
+    """Test resolving oneOf union types."""
+    from generator.parser import resolve_type
+
+    schema = {
+        "oneOf": [
+            {"type": "integer", "format": "int64"},
+            {"type": "string"}
+        ]
+    }
+    assert resolve_type(schema) == "int | str"
+
+
+def test_resolve_type_klines():
+    """Test resolving klines response type (most complex case)."""
+    from generator.parser import resolve_type
+
+    schema = {
+        "type": "array",
+        "items": {
+            "type": "array",
+            "items": {
+                "oneOf": [
+                    {"type": "integer", "format": "int64"},
+                    {"type": "string"}
+                ]
+            }
+        }
+    }
+    assert resolve_type(schema) == "list[list[int | str]]"
+
+
+def test_resolve_type_ref():
+    """Test resolving $ref types."""
+    from generator.parser import resolve_type
+
+    schema = {"$ref": "#/components/schemas/OrderResponse"}
+    assert resolve_type(schema) == "OrderResponse"
+
+
+def test_parse_schema_klines():
+    """Test parsing klines schema (raw array response)."""
+    from generator.parser import parse_schema
+
+    schema_data = {
+        "type": "array",
+        "items": {
+            "type": "array",
+            "items": {
+                "oneOf": [
+                    {"type": "integer", "format": "int64"},
+                    {"type": "string"}
+                ]
+            }
+        }
+    }
+
+    schema = parse_schema("Kline", "GetKlinesV3Resp", schema_data)
+
+    assert schema.is_array is True
+    assert schema.raw_type == "list[list[int | str]]"
+
+
+def test_parse_schema_object():
+    """Test parsing object schema with properties."""
+    from generator.parser import parse_schema
+
+    schema_data = {
+        "type": "object",
+        "properties": {
+            "orderId": {"type": "integer", "format": "int64"},
+            "symbol": {"type": "string"},
+            "status": {"type": "string"}
+        },
+        "required": ["orderId", "symbol"]
+    }
+
+    schema = parse_schema("Order", "GetOrderV3Resp", schema_data)
+
+    assert schema.is_array is False
+    assert len(schema.properties) == 3
+
+    # Check properties
+    prop_map = {p.name: p for p in schema.properties}
+    assert prop_map["orderId"].type == "int"
+    assert prop_map["orderId"].required is True
+    assert prop_map["status"].required is False
+
+
+def test_parse_schema_array_of_ref():
+    """Test parsing array schema with $ref items."""
+    from generator.parser import parse_schema
+
+    schema_data = {
+        "type": "array",
+        "items": {
+            "$ref": "#/components/schemas/TradeItem"
+        }
+    }
+
+    schema = parse_schema("Trade", "GetTradesV3Resp", schema_data)
+
+    assert schema.is_array is True
+    assert schema.item_type == "TradeItem"

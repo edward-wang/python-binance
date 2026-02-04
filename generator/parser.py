@@ -175,3 +175,69 @@ def parse_parameters(operation: dict[str, Any]) -> list[Parameter]:
 
     params.sort(key=lambda p: (not p.required, p.name))
     return params
+
+
+def parse_property(
+    name: str,
+    prop_data: dict[str, Any],
+    required_list: list[str],
+) -> Property:
+    """Parse a single schema property."""
+    py_type = resolve_type(prop_data)
+    is_array = prop_data.get("type") == "array"
+
+    ref_type: str | None = None
+    if "$ref" in prop_data:
+        ref_type = prop_data["$ref"].split("/")[-1]
+    elif is_array and "$ref" in prop_data.get("items", {}):
+        ref_type = prop_data["items"]["$ref"].split("/")[-1]
+
+    return Property(
+        name=name,
+        py_name=to_snake_case(name),
+        type=py_type,
+        required=name in required_list,
+        description=prop_data.get("description", ""),
+        is_array=is_array,
+        ref_type=ref_type,
+    )
+
+
+def parse_schema(
+    clean_name: str,
+    original_name: str,
+    schema_data: dict[str, Any],
+) -> Schema:
+    """Parse a schema definition."""
+    type_str = schema_data.get("type", "object")
+    is_array = type_str == "array"
+
+    properties: list[Property] = []
+    item_type: str | None = None
+    raw_type: str | None = None
+
+    if is_array:
+        items = schema_data.get("items", {})
+        if "$ref" in items:
+            ref = items["$ref"]
+            item_type = ref.split("/")[-1]
+        elif "properties" in items:
+            required_list = items.get("required", [])
+            for prop_name, prop_data in items.get("properties", {}).items():
+                properties.append(parse_property(prop_name, prop_data, required_list))
+        else:
+            raw_type = resolve_type(schema_data)
+    else:
+        required_list = schema_data.get("required", [])
+        for prop_name, prop_data in schema_data.get("properties", {}).items():
+            properties.append(parse_property(prop_name, prop_data, required_list))
+
+    return Schema(
+        name=clean_name,
+        original_name=original_name,
+        properties=properties,
+        is_array=is_array,
+        description=schema_data.get("description", ""),
+        item_type=item_type,
+        raw_type=raw_type,
+    )
