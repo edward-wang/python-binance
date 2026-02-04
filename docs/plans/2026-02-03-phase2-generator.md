@@ -25,6 +25,213 @@ Each endpoint file (e.g., `specs/openapi/spot/get_api_v3_klines.yaml`) contains:
 
 ---
 
+## Task 0: Analyze Real Spec Files - Pattern Catalog
+
+**Files:**
+- Create: `docs/specs-analysis.md`
+
+**Purpose:** Before writing parser code, analyze real spec files to discover all patterns.
+This prevents mid-implementation surprises and ensures the parser design is complete.
+
+**Step 1: Analyze sample spec files**
+
+Examine at least 10 diverse spec files to catalog patterns:
+
+```bash
+# List all spot spec files
+ls specs/openapi/spot/*.yaml | head -20
+
+# Examine specific files for different patterns
+cat specs/openapi/spot/get_api_v3_time.yaml      # Simple public endpoint
+cat specs/openapi/spot/get_api_v3_klines.yaml    # Raw array response (oneOf)
+cat specs/openapi/spot/get_api_v3_account.yaml   # Signed endpoint
+cat specs/openapi/spot/get_api_v3_depth.yaml     # Nested array response
+cat specs/openapi/spot/post_api_v3_order.yaml    # POST with requestBody
+```
+
+**Step 2: Document discovered patterns**
+
+Create `docs/specs-analysis.md` with findings:
+
+```markdown
+# OpenAPI Spec Analysis
+
+## Response Type Patterns
+
+### 1. Object Response ($ref)
+Example: `get_api_v3_account.yaml`
+```yaml
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/GetAccountV3Resp'
+```
+Parser action: Extract schema name from $ref, generate typed return.
+
+### 2. Array of Objects (items.$ref)
+Example: `get_api_v3_trades.yaml`
+```yaml
+schema:
+  items:
+    $ref: '#/components/schemas/GetTradesV3RespItem'
+  type: array
+```
+Parser action: Extract item type, generate `list[ItemType]` return.
+
+### 3. Raw Array (items.oneOf)
+Example: `get_api_v3_klines.yaml`
+```yaml
+schema:
+  items:
+    items:
+      oneOf:
+        - type: integer
+          format: int64
+        - type: string
+    type: array
+  type: array
+```
+Parser action: Recursively resolve to `list[list[int | str]]`.
+
+### 4. Inline Object (no $ref)
+Example: Some error responses
+```yaml
+schema:
+  properties:
+    code:
+      type: integer
+    msg:
+      type: string
+  type: object
+```
+Parser action: Generate inline schema or skip (for errors).
+
+## Parameter Patterns
+
+### 1. Required Query Parameter
+```yaml
+- in: query
+  name: symbol
+  required: true
+  schema:
+    type: string
+```
+
+### 2. Optional with Default
+```yaml
+- in: query
+  name: limit
+  schema:
+    default: 500
+    maximum: 1000
+    type: integer
+```
+
+### 3. Enum Parameter
+```yaml
+- in: query
+  name: side
+  required: true
+  schema:
+    enum: [BUY, SELL]
+    type: string
+```
+
+### 4. requestBody (POST/PUT)
+```yaml
+requestBody:
+  content:
+    application/x-www-form-urlencoded:
+      schema:
+        $ref: '#/components/schemas/PostOrderV3Req'
+```
+
+## Security Patterns
+
+### 1. Public Endpoint (no security)
+No `security` section in operation.
+
+### 2. API Key Required
+```yaml
+security:
+  - ApiKey: []
+```
+
+### 3. Signed (timestamp required)
+Has `security` AND `timestamp` parameter with `required: true`.
+
+## Schema Patterns
+
+### 1. Flat Object
+```yaml
+properties:
+  price:
+    type: string
+  qty:
+    type: string
+type: object
+```
+
+### 2. Nested Object
+```yaml
+properties:
+  commissionRates:
+    properties:
+      maker:
+        type: string
+    type: object
+type: object
+```
+
+### 3. Array Property
+```yaml
+properties:
+  balances:
+    items:
+      properties:
+        asset:
+          type: string
+      type: object
+    type: array
+```
+
+## Edge Cases Found
+
+1. [ ] Empty description fields
+2. [ ] Missing type (defaults to object)
+3. [ ] format: int64 on integers
+4. [ ] Multiple $ref to same schema from different endpoints
+5. [ ] Schemas with same structure but different names
+```
+
+**Step 3: Verify pattern coverage**
+
+Check that all documented patterns are covered by the parser design:
+
+| Pattern | Covered in Task |
+|---------|-----------------|
+| Object response ($ref) | Task 7 |
+| Array response (items.$ref) | Task 7 |
+| Raw array (oneOf) | Task 7 (resolve_type) |
+| Required params | Task 6 |
+| Optional with default | Task 6 |
+| Enum params | Task 6 |
+| requestBody params | Task 8 |
+| Public endpoints | Task 8 |
+| Signed endpoints | Task 8 |
+| Nested objects | Task 7 |
+
+**Step 4: Commit**
+
+```bash
+git add docs/specs-analysis.md
+git commit -m "docs: analyze spec files and catalog patterns for parser design"
+```
+
+---
+
 ## Task 1: Add Generator Dependencies
 
 **Files:**
@@ -2615,12 +2822,20 @@ def test_schema_template_renders():
         )
     ]
 
-    output = template.render(schemas=schemas, module_name="spot")
+    output = template.render(
+        schemas=schemas,
+        module_name="spot",
+        generated_at="2026-02-04T10:30:00Z",
+    )
 
     assert "class Order(BaseStruct):" in output
     assert "order_id: int" in output
     assert "symbol: str" in output
     assert "status: str | None = None" in output
+    # Check generation metadata
+    assert "Generated: 2026-02-04T10:30:00Z" in output
+    assert "DO NOT EDIT" in output
+    assert "python -m generator" in output
 ```
 
 **Step 2: Run test to verify it fails**
@@ -2638,7 +2853,11 @@ mkdir -p generator/templates
 {# generator/templates/schema.py.j2 #}
 """Generated schema definitions for {{ module_name }} API.
 
-DO NOT EDIT - This file is auto-generated by the code generator.
+Auto-generated by python-binance-agent code generator.
+Generated: {{ generated_at }}
+Source: specs/openapi/{{ module_name }}/
+
+DO NOT EDIT - Regenerate with: python -m generator --{{ module_name }}
 """
 from binance._schemas.common import BaseStruct
 
@@ -2741,12 +2960,16 @@ def test_endpoint_template_renders():
         module_name="market",
         spec_name="spot",
         schema_imports=["Kline"],  # Schema imports passed by emitter
+        generated_at="2026-02-04T10:30:00Z",
     )
 
     assert "async def get_klines(" in output
     assert "symbol: str" in output
     assert "interval: str" in output
     assert "limit: int = 500" in output
+    # Check generation metadata
+    assert "Generated: 2026-02-04T10:30:00Z" in output
+    assert "DO NOT EDIT" in output
 
 
 def test_endpoint_template_generates_imports():
@@ -2788,6 +3011,7 @@ def test_endpoint_template_generates_imports():
         module_name="market",
         spec_name="spot",
         schema_imports=["Kline", "Trade"],
+        generated_at="2026-02-04T10:30:00Z",
     )
 
     # Check import statement is generated
@@ -2822,6 +3046,7 @@ def test_endpoint_template_no_imports_for_raw_types():
         module_name="market",
         spec_name="spot",
         schema_imports=[],  # No schemas to import
+        generated_at="2026-02-04T10:30:00Z",
     )
 
     # Should not have schema import line (or empty import)
@@ -2855,6 +3080,7 @@ def test_endpoint_template_signed():
         module_name="account",
         spec_name="spot",
         schema_imports=["Account"],
+        generated_at="2026-02-04T10:30:00Z",
     )
 
     assert "signed=True" in output
@@ -2872,7 +3098,11 @@ Expected: FAIL
 {# generator/templates/endpoint.py.j2 #}
 """Generated {{ module_name }} API endpoints.
 
-DO NOT EDIT - This file is auto-generated by the code generator.
+Auto-generated by python-binance-agent code generator.
+Generated: {{ generated_at }}
+Source: specs/openapi/{{ spec_name }}/
+
+DO NOT EDIT - Regenerate with: python -m generator --{{ spec_name }}
 """
 from typing import TYPE_CHECKING, Any
 {% if schema_imports %}
@@ -3057,6 +3287,22 @@ def test_collect_schema_imports_deduplicates():
     assert imports == ["Order"]  # Deduplicated
 
 
+def test_format_output():
+    """Test formatting output with ruff."""
+    from generator.emitter import format_output
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create a file with bad formatting
+        test_file = Path(tmpdir) / "test.py"
+        test_file.write_text("x=1\ny=2")  # Missing spaces around =
+
+        result = format_output(test_file)
+
+        # If ruff is installed, it should format
+        # If not, it gracefully returns False
+        assert isinstance(result, bool)
+
+
 def test_emit_schemas():
     """Test emitting schema file."""
     from generator.emitter import emit_schemas
@@ -3074,10 +3320,13 @@ def test_emit_schemas():
 
     with tempfile.TemporaryDirectory() as tmpdir:
         output_path = Path(tmpdir) / "spot.py"
-        emit_schemas(schemas, output_path, "spot")
+        emit_schemas(schemas, output_path, "spot", generated_at="2026-02-04T10:30:00Z")
 
         content = output_path.read_text()
         assert "class Order(BaseStruct):" in content
+        # Check generation metadata
+        assert "Generated: 2026-02-04T10:30:00Z" in content
+        assert "DO NOT EDIT" in content
 
 
 def test_emit_endpoints():
@@ -3103,11 +3352,14 @@ def test_emit_endpoints():
 
     with tempfile.TemporaryDirectory() as tmpdir:
         output_path = Path(tmpdir) / "market.py"
-        emit_endpoints(endpoints, output_path, "market", "spot")
+        emit_endpoints(endpoints, output_path, "market", "spot", generated_at="2026-02-04T10:30:00Z")
 
         content = output_path.read_text()
         assert "async def get_klines(" in content
         assert "from binance._schemas.spot import Kline" in content
+        # Check generation metadata
+        assert "Generated: 2026-02-04T10:30:00Z" in content
+        assert "DO NOT EDIT" in content
 
 
 def test_emit_endpoints_with_raw_type():
@@ -3194,6 +3446,8 @@ Expected: FAIL with "cannot import name 'emit_schemas' from 'generator.emitter'"
 ```python
 # generator/emitter.py
 """Emit Python code from internal models using templates."""
+import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 from collections import defaultdict
 
@@ -3201,6 +3455,32 @@ from jinja2 import Environment, FileSystemLoader
 
 from generator.models import Schema, Endpoint, ParsedSpec
 from generator.config import TEMPLATE_DIR
+
+
+def get_generated_timestamp() -> str:
+    """Get current UTC timestamp for generation metadata."""
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def format_output(path: Path) -> bool:
+    """Format generated file with ruff.
+
+    Args:
+        path: Path to Python file
+
+    Returns:
+        True if formatting succeeded, False otherwise
+    """
+    try:
+        result = subprocess.run(
+            ["ruff", "format", str(path)],
+            capture_output=True,
+            check=False,
+        )
+        return result.returncode == 0
+    except FileNotFoundError:
+        # ruff not installed, skip formatting
+        return False
 
 
 def get_template_env() -> Environment:
@@ -3235,6 +3515,7 @@ def emit_schemas(
     schemas: dict[str, Schema],
     output_path: Path,
     module_name: str,
+    generated_at: str | None = None,
 ) -> None:
     """Emit schema definitions to a Python file.
 
@@ -3242,6 +3523,7 @@ def emit_schemas(
         schemas: Dict of schema name to Schema
         output_path: Path to write output
         module_name: Module name for header
+        generated_at: Timestamp for generation metadata (auto-generated if None)
     """
     env = get_template_env()
     template = env.get_template("schema.py.j2")
@@ -3249,10 +3531,17 @@ def emit_schemas(
     # Sort schemas by name for consistent output
     sorted_schemas = sorted(schemas.values(), key=lambda s: s.name)
 
-    content = template.render(schemas=sorted_schemas, module_name=module_name)
+    content = template.render(
+        schemas=sorted_schemas,
+        module_name=module_name,
+        generated_at=generated_at or get_generated_timestamp(),
+    )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(content)
+
+    # Format with ruff
+    format_output(output_path)
 
 
 def emit_endpoints(
@@ -3260,6 +3549,7 @@ def emit_endpoints(
     output_path: Path,
     module_name: str,
     spec_name: str,
+    generated_at: str | None = None,
 ) -> None:
     """Emit endpoint functions to a Python file.
 
@@ -3268,6 +3558,7 @@ def emit_endpoints(
         output_path: Path to write output
         module_name: Module name for header (e.g., "market")
         spec_name: Spec name for schema imports (e.g., "spot")
+        generated_at: Timestamp for generation metadata (auto-generated if None)
     """
     env = get_template_env()
     template = env.get_template("endpoint.py.j2")
@@ -3283,10 +3574,14 @@ def emit_endpoints(
         module_name=module_name,
         spec_name=spec_name,
         schema_imports=schema_imports,
+        generated_at=generated_at or get_generated_timestamp(),
     )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(content)
+
+    # Format with ruff
+    format_output(output_path)
 
 
 def emit_spec(
@@ -3301,6 +3596,9 @@ def emit_spec(
         api_dir: Base directory for API endpoint files
         schemas_dir: Base directory for schema files
     """
+    # Generate a consistent timestamp for all files in this spec
+    generated_at = get_generated_timestamp()
+
     # Group endpoints by module
     endpoints_by_module: dict[str, list[Endpoint]] = defaultdict(list)
     for endpoint in spec.endpoints:
@@ -3310,19 +3608,22 @@ def emit_spec(
     spec_api_dir = api_dir / spec.name
     for module_name, endpoints in endpoints_by_module.items():
         output_path = spec_api_dir / f"{module_name}.py"
-        emit_endpoints(endpoints, output_path, module_name, spec.name)
+        emit_endpoints(endpoints, output_path, module_name, spec.name, generated_at)
 
     # Create __init__.py for the spec API directory
     init_path = spec_api_dir / "__init__.py"
-    init_content = f'"""Generated {spec.name} API endpoints."""\n'
+    init_content = f'"""Generated {spec.name} API endpoints.\n\n'
+    init_content += f'Auto-generated: {generated_at}\n'
+    init_content += 'DO NOT EDIT - Regenerate with: python -m generator\n"""\n'
     for module_name in sorted(endpoints_by_module.keys()):
         init_content += f"from . import {module_name}\n"
     init_path.parent.mkdir(parents=True, exist_ok=True)
     init_path.write_text(init_content)
+    format_output(init_path)
 
     # Emit schema file
     schema_path = schemas_dir / f"{spec.name}.py"
-    emit_schemas(spec.schemas, schema_path, spec.name)
+    emit_schemas(spec.schemas, schema_path, spec.name, generated_at)
 ```
 
 **Step 4: Run tests to verify they pass**
@@ -3339,7 +3640,12 @@ Expected: Success
 
 ```bash
 git add generator/emitter.py tests/unit/generator/test_emitter.py
-git commit -m "feat: implement code emitter with schema imports"
+git commit -m "feat: implement code emitter with generation metadata and formatting
+
+- Add generation timestamp to all generated files
+- Add DO NOT EDIT warning with regeneration command
+- Format output with ruff (graceful fallback if not installed)
+- Collect and deduplicate schema imports for endpoint files"
 ```
 
 ---
@@ -3789,13 +4095,15 @@ After completing all 15 tasks, you will have:
 ## Dependency Graph
 
 ```
-Task 1 (Dependencies)
-    ↓
-Task 2 (Package Structure)
-    ↓
-Task 3 (Config) ─────────────────────┐
+Task 0 (Spec Analysis) ──────────────┐ ← Do this first to understand patterns
     ↓                                │
-Task 4 (Models) ←────────────────────┤
+Task 1 (Dependencies)                │
+    ↓                                │
+Task 2 (Package Structure)           │
+    ↓                                │
+Task 3 (Config) ─────────────────────┤
+    ↓                                │
+Task 4 (Models) ←────────────────────┤ ← Informed by Task 0 findings
     ↓                                │
 Task 5 (Parser Basic)                │
     ↓                                │
@@ -3811,7 +4119,7 @@ Task 10 (Schema Template) ←──────────┘
     ↓
 Task 11 (Endpoint Template)
     ↓
-Task 12 (Emitter) ←── Task 10, 11
+Task 12 (Emitter) ←── Task 10, 11, includes ruff formatting
     ↓
 Task 13 (CLI Main) ←── Task 9, 12
     ↓
@@ -3819,3 +4127,10 @@ Task 14 (Integration Test)
     ↓
 Task 15 (Final Verification)
 ```
+
+**Note on Generation Metadata:**
+All generated files include:
+- Generation timestamp (consistent across files in same run)
+- Source spec directory path
+- "DO NOT EDIT" warning with regeneration command
+- Formatted with `ruff format` for consistent style
