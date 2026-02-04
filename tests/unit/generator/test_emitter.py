@@ -10,6 +10,19 @@ from generator.models import (
     Parameter,
     ParsedSpec,
 )
+from generator.emitter import python_repr
+
+
+def test_python_repr():
+    """Test python_repr filter for default value formatting."""
+    assert python_repr(None) == "None"
+    assert python_repr(True) == "True"
+    assert python_repr(False) == "False"
+    assert python_repr(500) == "500"
+    assert python_repr(3.14) == "3.14"
+    assert python_repr("hello") == "'hello'"
+    assert python_repr("") == "''"  # Empty string
+    assert python_repr("it's") == "\"it's\""  # Escaping
 
 
 def test_create_emitter():

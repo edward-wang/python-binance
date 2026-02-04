@@ -37,6 +37,21 @@ def test_snake_case_conversion():
     assert to_snake_case("already_snake") == "already_snake"
 
 
+def test_snake_case_reserved_keywords():
+    """Test handling of Python reserved keywords."""
+    from generator.config import to_snake_case
+
+    # Python keywords get underscore suffix
+    assert to_snake_case("from") == "from_"
+    assert to_snake_case("import") == "import_"
+    assert to_snake_case("class") == "class_"
+    assert to_snake_case("type") == "type_"
+
+    # Non-keywords remain unchanged
+    assert to_snake_case("symbol") == "symbol"
+    assert to_snake_case("fromId") == "from_id"  # camelCase, not keyword
+
+
 def test_method_name_generation():
     """Test method name generation from operationId."""
     from generator.config import to_method_name

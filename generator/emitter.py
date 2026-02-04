@@ -12,6 +12,27 @@ from jinja2 import Environment, PackageLoader
 from generator.models import Endpoint, ParsedSpec, Schema
 
 
+def python_repr(value: str | int | float | bool | None) -> str:
+    """Format a value as a valid Python literal.
+
+    Args:
+        value: The value to format
+
+    Returns:
+        Python-valid representation of the value
+    """
+    if value is None:
+        return "None"
+    if isinstance(value, bool):
+        return "True" if value else "False"
+    if isinstance(value, str):
+        # Use repr to properly escape and quote strings
+        return repr(value)
+    if isinstance(value, (int, float)):
+        return str(value)
+    return repr(value)
+
+
 class Emitter:
     """Code emitter that renders templates with parsed spec data."""
 
@@ -22,6 +43,8 @@ class Emitter:
             trim_blocks=True,
             lstrip_blocks=True,
         )
+        # Add custom filter for Python repr
+        self.env.filters["pyrepr"] = python_repr
 
     def render_schemas(
         self,

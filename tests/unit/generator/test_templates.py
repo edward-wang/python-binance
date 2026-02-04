@@ -5,17 +5,15 @@ import pytest
 from jinja2 import Environment, FileSystemLoader
 
 from generator.models import Schema, Property
+from generator.emitter import Emitter
 
 
 @pytest.fixture
 def jinja_env():
-    """Create Jinja2 environment with templates."""
-    templates_dir = Path(__file__).parent.parent.parent.parent / "generator" / "templates"
-    return Environment(
-        loader=FileSystemLoader(templates_dir),
-        trim_blocks=True,
-        lstrip_blocks=True,
-    )
+    """Create Jinja2 environment with templates (using Emitter for filters)."""
+    # Use Emitter's environment which has custom filters registered
+    emitter = Emitter()
+    return emitter.env
 
 
 def test_schema_template_basic(jinja_env):

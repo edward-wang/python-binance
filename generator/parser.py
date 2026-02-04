@@ -81,10 +81,11 @@ def is_signed_endpoint(operation: dict[str, Any]) -> bool:
 
 def resolve_type(schema_data: dict[str, Any]) -> str:
     """Recursively resolve OpenAPI schema to Python type annotation."""
-    # Handle $ref
+    # Handle $ref - use clean class name
     if "$ref" in schema_data:
         ref = schema_data["$ref"]
-        return ref.split("/")[-1]
+        ref_name = ref.split("/")[-1]
+        return to_class_name(ref_name)
 
     # Handle oneOf union types
     if "oneOf" in schema_data:

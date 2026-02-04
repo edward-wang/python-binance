@@ -240,11 +240,16 @@ def test_resolve_type_klines():
 
 
 def test_resolve_type_ref():
-    """Test resolving $ref types."""
+    """Test resolving $ref types returns clean class name."""
     from generator.parser import resolve_type
 
+    # $ref now returns clean class name (strips Response suffix)
     schema = {"$ref": "#/components/schemas/OrderResponse"}
-    assert resolve_type(schema) == "OrderResponse"
+    assert resolve_type(schema) == "Order"
+
+    # Schema names that don't need cleaning
+    schema = {"$ref": "#/components/schemas/TradeItem"}
+    assert resolve_type(schema) == "TradeItem"
 
 
 def test_parse_schema_klines():

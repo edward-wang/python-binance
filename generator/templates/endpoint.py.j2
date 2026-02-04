@@ -37,7 +37,7 @@ class {{ module_class }}Mixin:
 {% for param in endpoint.parameters %}
 {% if not param.required %}
 {% if param.default is not none %}
-        {{ param.py_name }}: {{ param.type }} = {{ param.default }},
+        {{ param.py_name }}: {{ param.type }} = {{ param.default | pyrepr }},
 {% else %}
         {{ param.py_name }}: {{ param.type }} | None = None,
 {% endif %}
@@ -77,7 +77,7 @@ class {{ module_class }}Mixin:
 {% for param in endpoint.parameters %}
 {% if not param.required %}
 {% if param.default is not none %}
-        {{ param.py_name }}: {{ param.type }} = {{ param.default }},
+        {{ param.py_name }}: {{ param.type }} = {{ param.default | pyrepr }},
 {% else %}
         {{ param.py_name }}: {{ param.type }} | None = None,
 {% endif %}

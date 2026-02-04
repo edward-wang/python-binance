@@ -12,16 +12,9 @@ from typing import Literal
 
 import msgspec
 
+{# First: emit all class definitions #}
 {% for schema in schemas %}
-{% if schema.raw_type %}
-# {{ schema.name }} is a type alias for raw array response
-{{ schema.name }} = {{ schema.raw_type }}
-
-{% elif schema.item_type %}
-# {{ schema.name }} is a list of {{ schema.item_type }}
-# Use list[{{ schema.item_type }}] directly in code
-
-{% elif schema.properties %}
+{% if schema.properties %}
 class {{ schema.name }}(msgspec.Struct, rename="camel"):
     """{{ schema.description or schema.name + ' response.' }}"""
 
@@ -33,9 +26,25 @@ class {{ schema.name }}(msgspec.Struct, rename="camel"):
 {% endif %}
 {% endfor %}
 
-{% else %}
+{% endif %}
+{% endfor %}
+{# Second: emit empty schema fallbacks #}
+{% for schema in schemas %}
+{% if not schema.properties and not schema.raw_type and not schema.item_type %}
 # {{ schema.name }}: Empty schema (no properties defined)
 {{ schema.name }} = dict[str, Any]
+
+{% endif %}
+{% endfor %}
+{# Third: emit type aliases (raw_type) at the end to avoid forward reference issues #}
+{% for schema in schemas %}
+{% if schema.raw_type %}
+# {{ schema.name }} is a type alias for raw array response
+{{ schema.name }} = {{ schema.raw_type }}
+
+{% elif schema.item_type %}
+# {{ schema.name }} is a list of {{ schema.item_type }}
+# Use list[{{ schema.item_type }}] directly in code
 
 {% endif %}
 {% endfor %}

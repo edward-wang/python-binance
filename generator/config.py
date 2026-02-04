@@ -83,20 +83,37 @@ IRREGULAR_PLURALS: dict[str, str] = {
     "Statuses": "Status",
 }
 
+# Python reserved keywords that need special handling
+PYTHON_KEYWORDS: set[str] = {
+    "and", "as", "assert", "async", "await", "break", "class", "continue",
+    "def", "del", "elif", "else", "except", "finally", "for", "from",
+    "global", "if", "import", "in", "is", "lambda", "nonlocal", "not",
+    "or", "pass", "raise", "return", "try", "while", "with", "yield",
+    "None", "True", "False", "type",
+}
+
 
 def to_snake_case(name: str) -> str:
     """Convert camelCase or PascalCase to snake_case.
+
+    Handles Python reserved keywords by appending underscore.
 
     Args:
         name: Input string in camelCase or PascalCase
 
     Returns:
-        String converted to snake_case
+        String converted to snake_case (with trailing _ if reserved)
     """
     # Handle consecutive uppercase (e.g., HTTPClient -> http_client)
     s1 = re.sub(r"(.)([A-Z][a-z]+)", r"\1_\2", name)
     s2 = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", s1)
-    return s2.lower()
+    result = s2.lower()
+
+    # Append underscore for Python reserved keywords
+    if result in PYTHON_KEYWORDS:
+        return result + "_"
+
+    return result
 
 
 def to_singular(name: str) -> str:
