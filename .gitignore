@@ -11,3 +11,4 @@ python_binance.egg-info/
 venv*/
 .vscode
 .binance/
+.worktrees/
