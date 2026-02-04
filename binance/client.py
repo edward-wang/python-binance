@@ -25,23 +25,23 @@ from typing import Any, overload
 
 from binance._core.http import HTTPClient
 from binance._schemas.spot import (
-    ServerTime,
-    ExchangeInfo,
-    OrderBook,
-    Trade,
+    Account,
     AggTrade,
-    Kline,
     AvgPrice,
+    BookTicker,
+    CancelOrderResult,
+    ExchangeInfo,
+    Kline,
+    MyTrade,
+    Order,
+    OrderBook,
+    QueryOrder,
+    ServerTime,
     Ticker24h,
     TickerPrice,
-    BookTicker,
-    Order,
-    QueryOrder,
-    CancelOrderResult,
-    Account,
-    MyTrade,
+    Trade,
 )
-from binance.api.spot import general, market, trade, account
+from binance.api.spot import account, general, market, trade
 
 
 class AsyncClient:

@@ -30,10 +30,10 @@ __version__ = "2.0.0"
 
 # Main client (new typed API)
 from binance.client import AsyncClient
+from binance.enums import *  # noqa
 
 # Exceptions and enums (preserved)
 from binance.exceptions import *  # noqa
-from binance.enums import *  # noqa
 
 __all__ = [
     "__version__",
