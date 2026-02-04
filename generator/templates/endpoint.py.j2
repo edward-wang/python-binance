@@ -52,6 +52,8 @@ class {{ module_class }}Mixin:
 {% for param in endpoint.parameters %}
 {% if param.required %}
         params["{{ param.name }}"] = {{ param.py_name }}
+{% elif param.default is not none %}
+        params["{{ param.name }}"] = {{ param.py_name }}
 {% else %}
         if {{ param.py_name }} is not None:
             params["{{ param.name }}"] = {{ param.py_name }}
@@ -92,6 +94,8 @@ class {{ module_class }}Mixin:
 {% for param in endpoint.parameters %}
 {% if param.required %}
         params["{{ param.name }}"] = {{ param.py_name }}
+{% elif param.default is not none %}
+        params["{{ param.name }}"] = {{ param.py_name }}
 {% else %}
         if {{ param.py_name }} is not None:
             params["{{ param.name }}"] = {{ param.py_name }}
@@ -108,3 +112,5 @@ class {{ module_class }}Mixin:
 
     {% endif %}
 {% endfor %}
+
+__all__ = ["{{ module_class }}Mixin"]

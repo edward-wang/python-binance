@@ -48,3 +48,11 @@ class {{ schema.name }}(msgspec.Struct, rename="camel"):
 
 {% endif %}
 {% endfor %}
+{# Export all public schemas #}
+__all__ = [
+{% for schema in schemas %}
+{% if schema.properties or schema.raw_type or (not schema.properties and not schema.raw_type and not schema.item_type) %}
+    "{{ schema.name }}",
+{% endif %}
+{% endfor %}
+]

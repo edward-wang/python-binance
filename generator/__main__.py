@@ -11,7 +11,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from generator.config import SPEC_PATHS, OUTPUT_PATHS
+from generator.config import SPEC_PATHS, OUTPUT_PATHS, detect_naming_conflicts, to_class_name
 from generator.parser import parse_spec_directory
 from generator.emitter import Emitter
 from generator.models import ParseErrorSeverity
@@ -53,6 +53,18 @@ def generate_api(spec_name: str, output_dir: Path) -> bool:
     print(f"  Parsed {len(result.spec.endpoints)} endpoints, {len(result.spec.schemas)} schemas")
     if result.warning_count > 0:
         print(f"  {result.warning_count} warnings (skipped files)")
+
+    # Check for schema naming conflicts
+    schema_mappings = {
+        name: to_class_name(name) for name in result.spec.schemas.keys()
+    }
+    conflicts = detect_naming_conflicts(schema_mappings)
+    if conflicts:
+        print(f"  WARNING: {len(conflicts)} naming conflicts detected:", file=sys.stderr)
+        for clean_name, originals in sorted(conflicts.items())[:5]:
+            print(f"    {clean_name}: {originals}", file=sys.stderr)
+        if len(conflicts) > 5:
+            print(f"    ... and {len(conflicts) - 5} more", file=sys.stderr)
 
     # Emit generated code
     print(f"Generating code to {output_dir}...")

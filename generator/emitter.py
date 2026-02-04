@@ -4,6 +4,8 @@ Combines parsed data with Jinja2 templates to generate typed Python client code.
 """
 from __future__ import annotations
 
+import shutil
+import subprocess
 from collections import defaultdict
 from pathlib import Path
 
@@ -150,16 +152,35 @@ class Emitter:
                     return True
         return False
 
+    def format_files(self, files: list[Path]) -> None:
+        """Format generated files with ruff.
+
+        Args:
+            files: List of file paths to format
+        """
+        # Check if ruff is available
+        if not shutil.which("ruff"):
+            return
+
+        for path in files:
+            subprocess.run(
+                ["ruff", "format", str(path)],
+                capture_output=True,
+                check=False,
+            )
+
     def emit(
         self,
         spec: ParsedSpec,
         output_dir: Path,
+        format_code: bool = True,
     ) -> list[Path]:
         """Emit generated code to output directory.
 
         Args:
             spec: Parsed spec data
             output_dir: Directory to write generated files
+            format_code: Whether to run ruff format on generated files
 
         Returns:
             List of generated file paths
@@ -188,5 +209,9 @@ class Emitter:
             module_path = output_dir / f"{module}.py"
             module_path.write_text(content)
             generated_files.append(module_path)
+
+        # Format generated code
+        if format_code:
+            self.format_files(generated_files)
 
         return generated_files
