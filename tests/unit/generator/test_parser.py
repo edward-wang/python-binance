@@ -68,3 +68,105 @@ def test_is_signed_endpoint():
     # Unsigned timestamp (not required)
     operation = {"parameters": [{"name": "timestamp", "required": False}]}
     assert is_signed_endpoint(operation) is False
+
+
+def test_parse_parameter():
+    """Test parsing a single parameter."""
+    from generator.parser import parse_parameter
+
+    param_data = {
+        "name": "symbol",
+        "in": "query",
+        "required": True,
+        "schema": {"type": "string", "default": ""},
+        "description": "Trading pair"
+    }
+
+    param = parse_parameter(param_data)
+
+    assert param.name == "symbol"
+    assert param.py_name == "symbol"
+    assert param.type == "str"
+    assert param.required is True
+
+
+def test_parse_parameter_with_int64():
+    """Test parsing int64 parameter."""
+    from generator.parser import parse_parameter
+
+    param_data = {
+        "name": "startTime",
+        "in": "query",
+        "schema": {"type": "integer", "format": "int64"}
+    }
+
+    param = parse_parameter(param_data)
+
+    assert param.type == "int"
+    assert param.required is False
+
+
+def test_parse_parameter_with_enum():
+    """Test parsing enum parameter with Literal type generation."""
+    from generator.parser import parse_parameter
+
+    param_data = {
+        "name": "interval",
+        "in": "query",
+        "required": True,
+        "schema": {
+            "type": "string",
+            "enum": ["1m", "5m", "1h", "1d"]
+        }
+    }
+
+    param = parse_parameter(param_data)
+
+    assert param.enum == ["1m", "5m", "1h", "1d"]
+    # Should generate Literal type
+    assert param.literal_type == 'Literal["1m", "5m", "1h", "1d"]'
+    assert param.type == param.literal_type
+
+
+def test_generate_literal_type():
+    """Test Literal type generation."""
+    from generator.parser import generate_literal_type
+
+    assert generate_literal_type(["BUY", "SELL"]) == 'Literal["BUY", "SELL"]'
+    assert generate_literal_type(["1m"]) == 'Literal["1m"]'
+
+
+def test_parse_parameter_with_array():
+    """Test parsing array parameter."""
+    from generator.parser import parse_parameter
+
+    param_data = {
+        "name": "symbols",
+        "in": "query",
+        "schema": {
+            "type": "array",
+            "items": {"type": "string"}
+        }
+    }
+
+    param = parse_parameter(param_data)
+
+    assert param.type == "list[str]"
+
+
+def test_parse_parameters():
+    """Test parsing all parameters for an operation."""
+    from generator.parser import parse_parameters
+
+    operation = {
+        "parameters": [
+            {"name": "symbol", "in": "query", "required": True, "schema": {"type": "string"}},
+            {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 500}},
+        ]
+    }
+
+    params = parse_parameters(operation)
+
+    assert len(params) == 2
+    assert params[0].name == "symbol"
+    assert params[1].default == 500
