@@ -1,0 +1,21 @@
+# Schema naming overrides - only for exceptions that smart inference can't handle
+#
+# semantic_renames: Map inferred names to better names
+# conflict_resolutions: Resolve when multiple schemas map to same name
+
+semantic_renames:
+  # Business domain naming
+  Depth: OrderBook
+  AvgPrice: AveragePrice
+
+conflict_resolutions:
+  # When GetOrderV3Resp and PostOrderV3Resp both map to "Order"
+  # Keep GetOrderV3Resp -> Order, rename the other
+  PostOrderV3Resp: OrderResponse
+
+  # Trade conflicts
+  GetMyTradesV3Resp: MyTrade
+  GetTradesV3Resp: PublicTrade
+
+  # Account info variations
+  GetAccountInfoV3Resp: AccountInfo
