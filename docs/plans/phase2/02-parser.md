@@ -219,7 +219,7 @@ def test_parse_parameter_with_int64():
 
 
 def test_parse_parameter_with_enum():
-    """Test parsing enum parameter."""
+    """Test parsing enum parameter with Literal type generation."""
     from generator.parser import parse_parameter
 
     param_data = {
@@ -235,6 +235,17 @@ def test_parse_parameter_with_enum():
     param = parse_parameter(param_data)
 
     assert param.enum == ["1m", "5m", "1h", "1d"]
+    # Should generate Literal type
+    assert param.literal_type == 'Literal["1m", "5m", "1h", "1d"]'
+    assert param.type == param.literal_type
+
+
+def test_generate_literal_type():
+    """Test Literal type generation."""
+    from generator.parser import generate_literal_type
+
+    assert generate_literal_type(["BUY", "SELL"]) == 'Literal["BUY", "SELL"]'
+    assert generate_literal_type(["1m"]) == 'Literal["1m"]'
 
 
 def test_parse_parameter_with_ref():
@@ -304,22 +315,43 @@ from generator.models import Parameter, Property, Schema, Endpoint
 from generator.config import TYPE_MAP, to_snake_case
 
 
+def generate_literal_type(enum_values: list[str]) -> str:
+    """Generate a Literal type annotation from enum values.
+
+    Args:
+        enum_values: List of allowed string values
+
+    Returns:
+        Literal type string, e.g., 'Literal["BUY", "SELL"]'
+    """
+    quoted = [f'"{v}"' for v in enum_values]
+    return f'Literal[{", ".join(quoted)}]'
+
+
 def parse_parameter(param_data: dict[str, Any]) -> Parameter:
     """Parse a single parameter definition.
 
-    Handles regular types, arrays, and $ref schemas.
+    Handles regular types, arrays, $ref schemas, and generates
+    Literal types for enum parameters.
     """
     name = param_data["name"]
     schema = param_data.get("schema", {})
+    enum_values = schema.get("enum")
 
     # Handle $ref in parameter schema (reuse resolve_type for consistency)
     if "$ref" in schema:
         # For $ref parameters, extract the type name
         ref_name = schema["$ref"].split("/")[-1]
         py_type = to_class_name(ref_name)
+        literal_type = None
+    elif enum_values and isinstance(enum_values, list) and len(enum_values) <= 20:
+        # Generate Literal type for enums (skip if too many values)
+        literal_type = generate_literal_type(enum_values)
+        py_type = literal_type
     else:
         # Use resolve_type for consistent type resolution
         py_type = resolve_type(schema)
+        literal_type = None
 
     return Parameter(
         name=name,
@@ -328,7 +360,8 @@ def parse_parameter(param_data: dict[str, Any]) -> Parameter:
         required=param_data.get("required", False),
         default=schema.get("default"),
         description=param_data.get("description", ""),
-        enum=schema.get("enum"),
+        enum=enum_values,
+        literal_type=literal_type,
     )
 
 
@@ -961,6 +994,25 @@ def parse_request_body(
     return params
 
 
+def get_rate_limit_weight(operation: dict[str, Any]) -> int:
+    """Extract rate limit weight from x-weight extension.
+
+    Args:
+        operation: OpenAPI operation object
+
+    Returns:
+        Weight value (defaults to 1 if not specified)
+    """
+    # Check for x-weight extension (Binance custom extension)
+    weight = operation.get("x-weight", 1)
+    if isinstance(weight, int):
+        return weight
+    # Some specs may have weight as string
+    if isinstance(weight, str) and weight.isdigit():
+        return int(weight)
+    return 1
+
+
 def parse_endpoint(
     data: dict[str, Any],
 ) -> tuple[Endpoint, dict[str, Schema]]:
@@ -1006,6 +1058,7 @@ def parse_endpoint(
         description=operation.get("description", operation.get("summary", "")),
         module=get_module_for_path(path),
         raw_response_type=raw_response_type,
+        weight=get_rate_limit_weight(operation),
     )
 
     return endpoint, schemas
@@ -1206,6 +1259,40 @@ def create_conflict_errors(
     return errors
 
 
+def resolve_method_collisions_in_module(
+    endpoints: list[Endpoint],
+    module: str,
+    errors: list[ParseError],
+) -> None:
+    """Resolve method name collisions within a module (modifies endpoints in-place).
+
+    Args:
+        endpoints: List of endpoints to check (will be modified)
+        module: Module name for error messages
+        errors: List to append warnings to
+    """
+    from generator.config import resolve_method_collision
+
+    # Group by module
+    module_endpoints = [e for e in endpoints if e.module == module]
+    used_methods: set[str] = set()
+
+    for endpoint in module_endpoints:
+        if endpoint.method_name in used_methods:
+            original_name = endpoint.method_name
+            new_name = resolve_method_collision(endpoint.operation_id, used_methods)
+            endpoint.method_name = new_name
+            errors.append(ParseError(
+                file=None,
+                severity=ParseErrorSeverity.WARNING,
+                message=(
+                    f"Method collision in {module}: '{original_name}' renamed to '{new_name}' "
+                    f"(from {endpoint.operation_id})"
+                ),
+            ))
+        used_methods.add(endpoint.method_name)
+
+
 def parse_spec_directory(
     spec_dir: Path,
     limit: int | None = None,
@@ -1233,6 +1320,11 @@ def parse_spec_directory(
                 exception=e,
             ))
             continue
+
+    # Resolve method name collisions per module
+    modules = {e.module for e in endpoints}
+    for module in modules:
+        resolve_method_collisions_in_module(endpoints, module, errors)
 
     mappings = collect_schema_mappings(all_schemas)
     conflicts = detect_naming_conflicts(mappings)

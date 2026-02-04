@@ -84,6 +84,7 @@ Usage:
     python -m generator --dry-run    # Show what would be generated
     python -m generator --limit 10   # Limit endpoints (for testing)
     python -m generator --strict     # Fail on any errors
+    python -m generator --skip-errors  # Continue despite individual file failures
 """
 import argparse
 import sys
@@ -126,6 +127,10 @@ def main() -> int:
     parser.add_argument(
         "--verbose", "-v", action="store_true",
         help="Show detailed error/warning messages"
+    )
+    parser.add_argument(
+        "--skip-errors", action="store_true",
+        help="Continue generating valid endpoints even when some files fail"
     )
 
     args = parser.parse_args()
@@ -225,6 +230,8 @@ git commit -m "feat: implement generator CLI entry point"
 ```python
 # tests/integration/generator/test_generate_spot.py
 """Integration test for generating spot market endpoints."""
+import ast
+import inspect
 import subprocess
 import sys
 import tempfile
@@ -275,6 +282,96 @@ def test_generate_spot_market_endpoints(temp_output_dir: Path):
     compile(schema_code, "spot.py", "exec")
 
 
+def test_generated_code_ast_structure(temp_output_dir: Path):
+    """Test generated code has correct AST structure (semantic validation)."""
+    spec_dir = Path("specs/openapi/spot")
+    if not spec_dir.exists():
+        pytest.skip("Spec directory not found")
+
+    from generator.parser import parse_spec_directory
+    from generator.emitter import emit_spec
+
+    result = parse_spec_directory(spec_dir, limit=10)
+
+    api_dir = temp_output_dir / "api"
+    schemas_dir = temp_output_dir / "schemas"
+
+    emit_spec(result.spec, api_dir, schemas_dir)
+
+    # Parse schemas with AST
+    schema_code = (schemas_dir / "spot.py").read_text()
+    schema_tree = ast.parse(schema_code)
+
+    # Check __all__ is defined
+    all_assign = None
+    for node in ast.walk(schema_tree):
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name) and target.id == "__all__":
+                    all_assign = node
+                    break
+
+    assert all_assign is not None, "Schema module should have __all__"
+
+    # Check classes inherit from Struct
+    classes = [n for n in ast.walk(schema_tree) if isinstance(n, ast.ClassDef)]
+    assert len(classes) > 0, "Should have generated schema classes"
+
+    for cls in classes:
+        base_names = []
+        for base in cls.bases:
+            if isinstance(base, ast.Name):
+                base_names.append(base.id)
+            elif isinstance(base, ast.Call) and isinstance(base.func, ast.Name):
+                base_names.append(base.func.id)
+        assert "Struct" in base_names, f"Class {cls.name} should inherit from Struct"
+
+
+def test_generated_endpoints_match_spec(temp_output_dir: Path):
+    """Test generated endpoint signatures match the parsed spec (semantic validation)."""
+    spec_dir = Path("specs/openapi/spot")
+    if not spec_dir.exists():
+        pytest.skip("Spec directory not found")
+
+    from generator.parser import parse_spec_directory
+    from generator.emitter import emit_spec
+
+    result = parse_spec_directory(spec_dir, limit=10)
+
+    api_dir = temp_output_dir / "api"
+    schemas_dir = temp_output_dir / "schemas"
+
+    emit_spec(result.spec, api_dir, schemas_dir)
+
+    # For each endpoint in spec, verify it exists in generated code with correct params
+    market_endpoints = [e for e in result.spec.endpoints if e.module == "market"]
+
+    if not market_endpoints:
+        pytest.skip("No market endpoints in test set")
+
+    market_code = (api_dir / "spot" / "market.py").read_text()
+    market_tree = ast.parse(market_code)
+
+    # Get all function definitions
+    functions = {
+        n.name: n for n in ast.walk(market_tree)
+        if isinstance(n, ast.AsyncFunctionDef)
+    }
+
+    for endpoint in market_endpoints:
+        assert endpoint.method_name in functions, \
+            f"Endpoint {endpoint.method_name} should be in generated code"
+
+        func = functions[endpoint.method_name]
+
+        # Check parameter names match (excluding 'client')
+        func_params = [arg.arg for arg in func.args.args if arg.arg != "client"]
+        spec_params = [p.py_name for p in endpoint.parameters]
+
+        assert set(spec_params).issubset(set(func_params)), \
+            f"Function {endpoint.method_name} should have params {spec_params}, got {func_params}"
+
+
 def test_generated_code_type_checks(temp_output_dir: Path):
     """Test that generated code passes mypy."""
     spec_dir = Path("specs/openapi/spot")
@@ -301,6 +398,40 @@ def test_generated_code_type_checks(temp_output_dir: Path):
 
     print(mypy_result.stdout)
     print(mypy_result.stderr)
+
+
+def test_generated_code_importable(temp_output_dir: Path):
+    """Test that generated code can be imported and used."""
+    spec_dir = Path("specs/openapi/spot")
+    if not spec_dir.exists():
+        pytest.skip("Spec directory not found")
+
+    from generator.parser import parse_spec_directory
+    from generator.emitter import emit_spec
+
+    result = parse_spec_directory(spec_dir, limit=5)
+
+    api_dir = temp_output_dir / "api"
+    schemas_dir = temp_output_dir / "schemas"
+
+    emit_spec(result.spec, api_dir, schemas_dir)
+
+    # Add temp dir to path and try importing
+    sys.path.insert(0, str(temp_output_dir))
+    try:
+        # This verifies the code is syntactically correct and importable
+        schema_module = __import__("schemas.spot", fromlist=[""])
+
+        # Check __all__ is populated
+        assert hasattr(schema_module, "__all__")
+        assert len(schema_module.__all__) > 0
+
+        # Check we can access schema classes
+        for name in schema_module.__all__:
+            cls = getattr(schema_module, name)
+            assert isinstance(cls, type), f"{name} should be a class"
+    finally:
+        sys.path.remove(str(temp_output_dir))
 ```
 
 **Step 2: Create test directory**

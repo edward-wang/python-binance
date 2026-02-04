@@ -84,6 +84,54 @@ All generated files include:
 
 ---
 
+## Key Design Decisions
+
+### Type Safety Features
+
+| Feature | Implementation |
+|---------|---------------|
+| **Schema field aliases** | Use msgspec `Struct` with `rename="camel"` for automatic camelCase ↔ snake_case mapping |
+| **Literal types for enums** | Generate `Literal["BUY", "SELL"]` for enum parameters instead of raw `str` |
+| **Method collision detection** | Auto-resolve `GetKlinesV3` + `GetKlinesV4` → `get_klines`, `get_klines_v4` |
+| **Rate limit metadata** | Parse `x-weight` extension and include in docstring |
+
+### Code Quality Features
+
+| Feature | Implementation |
+|---------|---------------|
+| **`__all__` exports** | Generated modules define explicit public API |
+| **TYPE_CHECKING guards** | Avoid circular imports with conditional imports |
+| **Semantic validation tests** | AST-based tests verify structure, not just syntax |
+| **Structured error handling** | `ParseResult` with typed errors, `--skip-errors` mode |
+
+### Template Output
+
+**Schema classes:**
+```python
+class Order(Struct, rename="camel"):
+    """SpotCreateOrderV3Resp"""
+    order_id: int  # Auto-maps to "orderId" in JSON
+    symbol: str
+    status: str | None = None
+```
+
+**Endpoint functions:**
+```python
+async def get_klines(
+    client: HTTPClient,
+    symbol: str,
+    interval: Literal["1m", "5m", "1h", "1d"],
+    limit: int | None = None,
+) -> list[Kline]:
+    """Get kline data.
+
+    Note:
+        Rate limit weight: 1
+    """
+```
+
+---
+
 ## Cross-References
 
 When a task references another task's output:

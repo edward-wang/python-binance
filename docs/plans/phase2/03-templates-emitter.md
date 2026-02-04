@@ -53,9 +53,9 @@ def test_schema_template_renders():
             name="Order",
             original_name="SpotCreateOrderV3Resp",
             properties=[
-                Property(name="orderId", py_name="order_id", type="int", required=True),
-                Property(name="symbol", py_name="symbol", type="str", required=True),
-                Property(name="status", py_name="status", type="str", required=False),
+                Property(name="orderId", py_name="order_id", type="int", required=True, description="Order ID"),
+                Property(name="symbol", py_name="symbol", type="str", required=True, description="Trading pair"),
+                Property(name="status", py_name="status", type="str", required=False, description="Order status"),
             ],
             is_array=False,
         )
@@ -67,7 +67,8 @@ def test_schema_template_renders():
         generated_at="2026-02-04T10:30:00Z",
     )
 
-    assert "class Order(BaseStruct):" in output
+    # Check msgspec Struct with rename
+    assert 'class Order(Struct, rename="camel"):' in output
     assert "order_id: int" in output
     assert "symbol: str" in output
     assert "status: str | None = None" in output
@@ -75,6 +76,11 @@ def test_schema_template_renders():
     assert "Generated: 2026-02-04T10:30:00Z" in output
     assert "DO NOT EDIT" in output
     assert "python -m generator" in output
+    # Check __all__ exports
+    assert '__all__ = [' in output
+    assert '"Order"' in output
+    # Check docstring with Attributes
+    assert "Attributes:" in output
 ```
 
 **Step 2: Run test to verify it fails**
@@ -98,12 +104,27 @@ Source: specs/openapi/{{ module_name }}/
 
 DO NOT EDIT - Regenerate with: python -m generator --{{ module_name }}
 """
-from binance._schemas.common import BaseStruct
+from __future__ import annotations
+
+from msgspec import Struct
+
+
+__all__ = [
+{% for schema in schemas %}
+    "{{ schema.name }}",
+{% endfor %}
+]
 
 
 {% for schema in schemas %}
-class {{ schema.name }}(BaseStruct):
-    """{{ schema.description or schema.original_name }}"""
+class {{ schema.name }}(Struct, rename="camel"):
+    """{{ schema.description or schema.original_name }}
+
+    Attributes:
+    {% for prop in schema.properties %}
+        {{ prop.py_name }}: {{ prop.description or prop.name }}
+    {% endfor %}
+    """
     {% if schema.is_array and schema.item_type %}
     # Note: This schema represents an array of {{ schema.item_type }}
     {% endif %}
@@ -122,6 +143,12 @@ class {{ schema.name }}(BaseStruct):
 
 {% endfor %}
 ```
+
+**Note on msgspec rename="camel":**
+
+The `rename="camel"` option tells msgspec to automatically map snake_case Python field names
+(like `order_id`) to camelCase JSON keys (like `orderId`) during serialization/deserialization.
+This eliminates the need for explicit field aliases while keeping idiomatic Python naming.
 
 **Step 4: Run test to verify it passes**
 
@@ -292,19 +319,28 @@ Source: specs/openapi/{{ spec_name }}/
 
 DO NOT EDIT - Regenerate with: python -m generator --{{ spec_name }}
 """
-from typing import TYPE_CHECKING, Any
-{% if schema_imports %}
+from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any{% if has_literal_params %}, Literal{% endif %}
+
+{% if schema_imports %}
 from binance._schemas.{{ spec_name }} import {{ schema_imports | join(", ") }}
 {% endif %}
 
 if TYPE_CHECKING:
     from binance._core.http import HTTPClient
 
+
+__all__ = [
+{% for endpoint in endpoints %}
+    "{{ endpoint.method_name }}",
+{% endfor %}
+]
+
 {% for endpoint in endpoints %}
 
 async def {{ endpoint.method_name }}(
-    client: "HTTPClient",
+    client: HTTPClient,
     {% for param in endpoint.parameters %}
     {% if param.required %}
     {{ param.py_name }}: {{ param.type }},
@@ -324,6 +360,18 @@ async def {{ endpoint.method_name }}(
         {{ param.py_name }}: {{ param.description or param.name }}
     {% endfor %}
     {% endif %}
+
+    Returns:
+    {% if endpoint.raw_response_type %}
+        {{ endpoint.raw_response_type }}
+    {% elif endpoint.response_schema %}
+        {% if endpoint.is_array_response %}list[{{ endpoint.response_schema }}]{% else %}{{ endpoint.response_schema }}{% endif %}
+    {% else %}
+        dict[str, Any]: Raw API response
+    {% endif %}
+
+    Note:
+        Rate limit weight: {{ endpoint.weight }}
     """
     params: dict[str, Any] = {}
     {% for param in endpoint.parameters %}
@@ -614,6 +662,15 @@ def collect_schema_imports(endpoints: list[Endpoint]) -> list[str]:
     return sorted(schemas)
 
 
+def has_literal_params(endpoints: list[Endpoint]) -> bool:
+    """Check if any endpoint has Literal type parameters."""
+    for endpoint in endpoints:
+        for param in endpoint.parameters:
+            if param.literal_type:
+                return True
+    return False
+
+
 def emit_schemas(
     schemas: dict[str, Schema],
     output_path: Path,
@@ -656,6 +713,7 @@ def emit_endpoints(
         module_name=module_name,
         spec_name=spec_name,
         schema_imports=schema_imports,
+        has_literal_params=has_literal_params(sorted_endpoints),
         generated_at=generated_at or get_generated_timestamp(),
     )
 

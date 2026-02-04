@@ -554,6 +554,40 @@ def test_get_module_for_path_defaults():
 
     # Unknown core API endpoints default to 'general'
     assert get_module_for_path("/api/v5/unknown") == "general"
+
+
+def test_detect_method_collisions():
+    """Test detecting method name collisions."""
+    from generator.config import detect_method_collisions
+
+    # No collision
+    ops = ["GetKlinesV3", "GetTradesV3", "GetDepthV3"]
+    collisions = detect_method_collisions(ops, "market")
+    assert len(collisions) == 0
+
+    # Collision: GetKlinesV3 and GetKlinesV4 both map to get_klines
+    ops = ["GetKlinesV3", "GetKlinesV4", "GetTradesV3"]
+    collisions = detect_method_collisions(ops, "market")
+    assert "get_klines" in collisions
+    assert set(collisions["get_klines"]) == {"GetKlinesV3", "GetKlinesV4"}
+
+
+def test_resolve_method_collision():
+    """Test resolving method name collisions."""
+    from generator.config import resolve_method_collision
+
+    existing = {"get_klines"}
+
+    # First collision: use version suffix
+    name = resolve_method_collision("GetKlinesV4", existing)
+    assert name == "get_klines_v4"
+
+    # Add v4 to existing
+    existing.add("get_klines_v4")
+
+    # Second collision with same version: use numeric suffix
+    name = resolve_method_collision("GetKlinesV4Alt", existing)
+    assert name == "get_klines_2"
 ```
 
 **Step 2: Run test to verify it fails**
@@ -814,6 +848,60 @@ def detect_naming_conflicts(
     return {clean: originals for clean, originals in reverse.items() if len(originals) > 1}
 
 
+def detect_method_collisions(
+    operation_ids: list[str],
+    module: str,
+) -> dict[str, list[str]]:
+    """Detect when multiple operations map to the same method name within a module.
+
+    Args:
+        operation_ids: List of operationIds for endpoints in the same module
+        module: Module name (for context in error messages)
+
+    Returns:
+        Dict of method_name -> list of operation_ids that conflict
+    """
+    mappings: dict[str, list[str]] = {}
+    for op_id in operation_ids:
+        method_name = to_method_name(op_id)
+        mappings.setdefault(method_name, []).append(op_id)
+
+    return {name: ops for name, ops in mappings.items() if len(ops) > 1}
+
+
+def resolve_method_collision(
+    operation_id: str,
+    existing_methods: set[str],
+) -> str:
+    """Resolve method name collision by appending version or suffix.
+
+    Args:
+        operation_id: Original operationId
+        existing_methods: Set of method names already used in this module
+
+    Returns:
+        Unique method name
+    """
+    base_name = to_method_name(operation_id)
+
+    if base_name not in existing_methods:
+        return base_name
+
+    # Try appending version from operationId (e.g., get_klines_v3)
+    import re
+    version_match = re.search(r'V(\d+)$', operation_id)
+    if version_match:
+        versioned_name = f"{base_name}_v{version_match.group(1)}"
+        if versioned_name not in existing_methods:
+            return versioned_name
+
+    # Fallback: append incrementing suffix
+    suffix = 2
+    while f"{base_name}_{suffix}" in existing_methods:
+        suffix += 1
+    return f"{base_name}_{suffix}"
+
+
 # ============ Endpoint Grouping ============
 
 # Map path prefixes to module names
@@ -992,6 +1080,22 @@ def test_schema_with_raw_type():
     assert schema.raw_type == "list[list[int | str]]"
 
 
+def test_parameter_with_literal_type():
+    """Test Parameter with enum literal type."""
+    param = Parameter(
+        name="interval",
+        py_name="interval",
+        type='Literal["1m", "5m", "1h", "1d"]',
+        required=True,
+        default=None,
+        description="Kline interval",
+        enum=["1m", "5m", "1h", "1d"],
+        literal_type='Literal["1m", "5m", "1h", "1d"]',
+    )
+    assert param.literal_type is not None
+    assert "1m" in param.literal_type
+
+
 def test_endpoint_creation():
     """Test Endpoint dataclass."""
     endpoint = Endpoint(
@@ -1010,6 +1114,25 @@ def test_endpoint_creation():
     )
     assert endpoint.method_name == "get_klines"
     assert endpoint.requires_signature is False
+    assert endpoint.weight == 1  # Default weight
+
+
+def test_endpoint_with_weight():
+    """Test Endpoint with rate limit weight."""
+    endpoint = Endpoint(
+        operation_id="GetKlinesV3",
+        method_name="get_klines",
+        http_method="GET",
+        path="/api/v3/klines",
+        parameters=[],
+        response_schema="Kline",
+        is_array_response=True,
+        requires_signature=False,
+        description="Get kline data",
+        module="market",
+        weight=5,
+    )
+    assert endpoint.weight == 5
 
 
 def test_endpoint_signed():
@@ -1064,11 +1187,12 @@ class Parameter:
 
     name: str  # Original name from spec (camelCase)
     py_name: str  # Python name (snake_case)
-    type: str  # Python type annotation
+    type: str  # Python type annotation (may include Literal for enums)
     required: bool
     default: str | int | float | bool | None
     description: str
     enum: list[str] | None = None
+    literal_type: str | None = None  # e.g., 'Literal["1m", "5m", "1h"]' for enums
 
 
 @dataclass
@@ -1113,6 +1237,7 @@ class Endpoint:
     module: str  # Target module (general, market, trade, account)
     request_schema: str | None = None  # For POST with body
     raw_response_type: str | None = None  # For raw types like "list[list[int | str]]"
+    weight: int = 1  # Rate limit weight from x-weight extension
 
 
 @dataclass
