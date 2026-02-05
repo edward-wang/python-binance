@@ -1252,3 +1252,309 @@ class AsyncClient:
             from_id=from_id,
             limit=limit,
         )
+
+    # ============ COIN-M Futures General Endpoints ============
+
+    async def futures_coin_ping(self) -> dict[str, Any]:
+        """Test connectivity to COIN-M Futures API.
+
+        Weight: 1
+        """
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.general.ping(http)
+
+    async def futures_coin_get_server_time(self) -> ServerTime:
+        """Get COIN-M Futures server time.
+
+        Weight: 1
+        """
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.general.get_server_time(http)
+
+    async def futures_coin_get_exchange_info(self) -> FuturesExchangeInfo:
+        """Get COIN-M Futures exchange trading rules.
+
+        Weight: 1
+        """
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.general.get_exchange_info(http)
+
+    # ============ COIN-M Futures Market Data Endpoints ============
+
+    async def futures_coin_get_order_book(
+        self,
+        symbol: str,
+        limit: int = 500,
+    ) -> OrderBook:
+        """Get COIN-M futures order book depth."""
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.market.get_order_book(http, symbol=symbol, limit=limit)
+
+    async def futures_coin_get_trades(
+        self,
+        symbol: str,
+        limit: int = 500,
+    ) -> list[Trade]:
+        """Get COIN-M futures recent trades."""
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.market.get_trades(http, symbol=symbol, limit=limit)
+
+    async def futures_coin_get_klines(
+        self,
+        symbol: str,
+        interval: str,
+        start_time: int | None = None,
+        end_time: int | None = None,
+        limit: int = 500,
+    ) -> list[FuturesKline]:
+        """Get COIN-M futures kline/candlestick bars."""
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.market.get_klines(
+            http,
+            symbol=symbol,
+            interval=interval,
+            start_time=start_time,
+            end_time=end_time,
+            limit=limit,
+        )
+
+    @overload
+    async def futures_coin_get_mark_price(self, symbol: str) -> MarkPrice: ...
+    @overload
+    async def futures_coin_get_mark_price(self, symbol: None = None) -> list[MarkPrice]: ...
+
+    async def futures_coin_get_mark_price(
+        self,
+        symbol: str | None = None,
+    ) -> MarkPrice | list[MarkPrice]:
+        """Get COIN-M futures mark price and funding rate."""
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.market.get_mark_price(http, symbol=symbol)
+
+    async def futures_coin_get_funding_rate(
+        self,
+        symbol: str,
+        start_time: int | None = None,
+        end_time: int | None = None,
+        limit: int = 100,
+    ) -> list[FundingRate]:
+        """Get COIN-M futures funding rate history."""
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.market.get_funding_rate(
+            http,
+            symbol=symbol,
+            start_time=start_time,
+            end_time=end_time,
+            limit=limit,
+        )
+
+    @overload
+    async def futures_coin_get_ticker_24h(self, symbol: str) -> FuturesTicker24h: ...
+    @overload
+    async def futures_coin_get_ticker_24h(self, symbol: None = None) -> list[FuturesTicker24h]: ...
+
+    async def futures_coin_get_ticker_24h(
+        self,
+        symbol: str | None = None,
+    ) -> FuturesTicker24h | list[FuturesTicker24h]:
+        """Get COIN-M futures 24hr ticker."""
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.market.get_ticker_24h(http, symbol=symbol)
+
+    @overload
+    async def futures_coin_get_ticker_price(self, symbol: str) -> TickerPrice: ...
+    @overload
+    async def futures_coin_get_ticker_price(self, symbol: None = None) -> list[TickerPrice]: ...
+
+    async def futures_coin_get_ticker_price(
+        self,
+        symbol: str | None = None,
+    ) -> TickerPrice | list[TickerPrice]:
+        """Get COIN-M futures symbol price ticker."""
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.market.get_ticker_price(http, symbol=symbol)
+
+    # ============ COIN-M Futures Trade Endpoints (Signed) ============
+
+    async def futures_coin_create_order(
+        self,
+        symbol: str,
+        side: str,
+        type: str,
+        quantity: str | None = None,
+        price: str | None = None,
+        time_in_force: str | None = None,
+        reduce_only: bool | None = None,
+        new_client_order_id: str | None = None,
+        stop_price: str | None = None,
+        position_side: str | None = None,
+        close_position: bool | None = None,
+        working_type: str | None = None,
+        price_protect: bool | None = None,
+        new_order_resp_type: str | None = None,
+    ) -> FuturesOrder:
+        """Create a new COIN-M futures order.
+
+        Weight: 1
+        Requires: Signature
+        """
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.trade.create_order(
+            http,
+            symbol=symbol,
+            side=side,
+            type=type,
+            quantity=quantity,
+            price=price,
+            time_in_force=time_in_force,
+            reduce_only=reduce_only,
+            new_client_order_id=new_client_order_id,
+            stop_price=stop_price,
+            position_side=position_side,
+            close_position=close_position,
+            working_type=working_type,
+            price_protect=price_protect,
+            new_order_resp_type=new_order_resp_type,
+        )
+
+    async def futures_coin_get_order(
+        self,
+        symbol: str,
+        order_id: int | None = None,
+        orig_client_order_id: str | None = None,
+    ) -> FuturesOrder:
+        """Query COIN-M futures order status."""
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.trade.get_order(
+            http,
+            symbol=symbol,
+            order_id=order_id,
+            orig_client_order_id=orig_client_order_id,
+        )
+
+    async def futures_coin_cancel_order(
+        self,
+        symbol: str,
+        order_id: int | None = None,
+        orig_client_order_id: str | None = None,
+    ) -> FuturesOrder:
+        """Cancel an active COIN-M futures order."""
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.trade.cancel_order(
+            http,
+            symbol=symbol,
+            order_id=order_id,
+            orig_client_order_id=orig_client_order_id,
+        )
+
+    async def futures_coin_cancel_all_open_orders(
+        self,
+        symbol: str,
+    ) -> dict[str, Any]:
+        """Cancel all open COIN-M futures orders on a symbol."""
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.trade.cancel_all_open_orders(http, symbol=symbol)
+
+    async def futures_coin_get_open_orders(
+        self,
+        symbol: str | None = None,
+    ) -> list[FuturesOrder]:
+        """Get all open COIN-M futures orders."""
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.trade.get_open_orders(http, symbol=symbol)
+
+    async def futures_coin_get_all_orders(
+        self,
+        symbol: str,
+        order_id: int | None = None,
+        start_time: int | None = None,
+        end_time: int | None = None,
+        limit: int = 500,
+    ) -> list[FuturesOrder]:
+        """Get all COIN-M futures orders (active, canceled, filled)."""
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.trade.get_all_orders(
+            http,
+            symbol=symbol,
+            order_id=order_id,
+            start_time=start_time,
+            end_time=end_time,
+            limit=limit,
+        )
+
+    async def futures_coin_create_batch_orders(
+        self,
+        orders: list[dict[str, Any]],
+    ) -> list[FuturesOrder | BatchOrderError]:
+        """Place multiple COIN-M futures orders in a single request.
+
+        Weight: 5
+        Requires: Signature
+
+        Args:
+            orders: List of order dicts (max 5)
+
+        Returns:
+            List of FuturesOrder or BatchOrderError for each order
+        """
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.trade.create_batch_orders(http, orders=orders)
+
+    # ============ COIN-M Futures Account Endpoints (Signed) ============
+
+    async def futures_coin_get_account(self) -> FuturesAccount:
+        """Get COIN-M futures account information."""
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.account.get_account(http)
+
+    async def futures_coin_get_balance(self) -> list[FuturesBalance]:
+        """Get COIN-M futures account balance."""
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.account.get_balance(http)
+
+    async def futures_coin_get_position_risk(
+        self,
+        symbol: str | None = None,
+    ) -> list[PositionRisk]:
+        """Get COIN-M futures position information."""
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.account.get_position_risk(http, symbol=symbol)
+
+    async def futures_coin_set_leverage(
+        self,
+        symbol: str,
+        leverage: int,
+    ) -> LeverageResult:
+        """Change COIN-M futures leverage."""
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.account.set_leverage(http, symbol=symbol, leverage=leverage)
+
+    async def futures_coin_set_margin_type(
+        self,
+        symbol: str,
+        margin_type: str,
+    ) -> dict[str, Any]:
+        """Change COIN-M futures margin type."""
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.account.set_margin_type(http, symbol=symbol, margin_type=margin_type)
+
+    async def futures_coin_get_my_trades(
+        self,
+        symbol: str,
+        order_id: int | None = None,
+        start_time: int | None = None,
+        end_time: int | None = None,
+        from_id: int | None = None,
+        limit: int = 500,
+    ) -> list[FuturesMyTrade]:
+        """Get COIN-M futures trades for account."""
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.account.get_my_trades(
+            http,
+            symbol=symbol,
+            order_id=order_id,
+            start_time=start_time,
+            end_time=end_time,
+            from_id=from_id,
+            limit=limit,
+        )

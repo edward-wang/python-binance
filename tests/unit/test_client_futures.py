@@ -129,3 +129,35 @@ def test_async_client_has_futures_um_account_methods():
     assert hasattr(client, "futures_get_position_risk")
     assert hasattr(client, "futures_set_leverage")
     assert hasattr(client, "futures_set_margin_type")
+
+
+# ============ Task 13: COIN-M Futures Methods ============
+
+
+def test_async_client_has_futures_cm_methods():
+    """Test that client has COIN-M futures methods."""
+    from binance.client import AsyncClient
+
+    client = AsyncClient()
+    # General
+    assert hasattr(client, "futures_coin_ping")
+    assert hasattr(client, "futures_coin_get_server_time")
+    assert hasattr(client, "futures_coin_get_exchange_info")
+    # Market
+    assert hasattr(client, "futures_coin_get_klines")
+    assert hasattr(client, "futures_coin_get_order_book")
+    assert hasattr(client, "futures_coin_get_mark_price")
+    assert hasattr(client, "futures_coin_get_funding_rate")
+    assert hasattr(client, "futures_coin_get_ticker_24h")
+    assert hasattr(client, "futures_coin_get_ticker_price")
+    # Trade
+    assert hasattr(client, "futures_coin_create_order")
+    assert hasattr(client, "futures_coin_cancel_order")
+    assert hasattr(client, "futures_coin_get_order")
+    assert hasattr(client, "futures_coin_get_open_orders")
+    assert hasattr(client, "futures_coin_create_batch_orders")
+    # Account
+    assert hasattr(client, "futures_coin_get_account")
+    assert hasattr(client, "futures_coin_get_balance")
+    assert hasattr(client, "futures_coin_get_position_risk")
+    assert hasattr(client, "futures_coin_set_leverage")
