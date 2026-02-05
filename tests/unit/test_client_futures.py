@@ -74,3 +74,29 @@ def test_async_client_futures_disable_time_sync():
     # Futures clients should have time sync disabled to share offset from spot
     assert um_client._time_sync_path is None
     assert cm_client._time_sync_path is None
+
+
+# ============ Task 11: USDT-M Futures General and Market Methods ============
+
+
+def test_async_client_has_futures_um_general_methods():
+    """Test that client has USDT-M futures general methods."""
+    from binance.client import AsyncClient
+
+    client = AsyncClient()
+    assert hasattr(client, "futures_ping")
+    assert hasattr(client, "futures_get_server_time")
+    assert hasattr(client, "futures_get_exchange_info")
+
+
+def test_async_client_has_futures_um_market_methods():
+    """Test that client has USDT-M futures market methods."""
+    from binance.client import AsyncClient
+
+    client = AsyncClient()
+    assert hasattr(client, "futures_get_klines")
+    assert hasattr(client, "futures_get_order_book")
+    assert hasattr(client, "futures_get_mark_price")
+    assert hasattr(client, "futures_get_funding_rate")
+    assert hasattr(client, "futures_get_ticker_24h")
+    assert hasattr(client, "futures_get_ticker_price")

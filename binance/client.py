@@ -46,7 +46,22 @@ from binance._schemas.spot import (
     TickerPrice,
     Trade,
 )
+from binance._schemas.futures import (
+    FuturesExchangeInfo,
+    FuturesKline,
+    FuturesOrder,
+    FuturesAccount,
+    FuturesBalance,
+    PositionRisk,
+    MarkPrice,
+    FundingRate,
+    LeverageResult,
+    FuturesTicker24h,
+    FuturesMyTrade,
+    BatchOrderError,
+)
 from binance.api.spot import account, general, market, trade
+from binance.api import futures_um, futures_cm
 
 
 class AsyncClient:
@@ -623,3 +638,265 @@ class AsyncClient:
             from_id=from_id,
             limit=limit,
         )
+
+    # ============ USDT-M Futures General Endpoints ============
+
+    async def futures_ping(self) -> dict[str, Any]:
+        """Test connectivity to USDT-M Futures API.
+
+        Weight: 1
+
+        Returns:
+            Empty dict on success
+        """
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.general.ping(http)
+
+    async def futures_get_server_time(self) -> ServerTime:
+        """Get USDT-M Futures server time.
+
+        Weight: 1
+
+        Returns:
+            ServerTime with server_time in milliseconds
+        """
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.general.get_server_time(http)
+
+    async def futures_get_exchange_info(self) -> FuturesExchangeInfo:
+        """Get USDT-M Futures exchange trading rules.
+
+        Weight: 1
+
+        Returns:
+            FuturesExchangeInfo with symbols and rate limits
+        """
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.general.get_exchange_info(http)
+
+    # ============ USDT-M Futures Market Data Endpoints ============
+
+    async def futures_get_order_book(
+        self,
+        symbol: str,
+        limit: int = 500,
+    ) -> OrderBook:
+        """Get USDT-M futures order book depth.
+
+        Weight: 5-20 depending on limit
+
+        Args:
+            symbol: Trading pair (e.g., "BTCUSDT")
+            limit: Depth limit (5, 10, 20, 50, 100, 500, 1000)
+
+        Returns:
+            OrderBook with bids and asks
+        """
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.market.get_order_book(http, symbol=symbol, limit=limit)
+
+    async def futures_get_trades(
+        self,
+        symbol: str,
+        limit: int = 500,
+    ) -> list[Trade]:
+        """Get USDT-M futures recent trades.
+
+        Weight: 5
+
+        Returns:
+            List of Trade objects
+        """
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.market.get_trades(http, symbol=symbol, limit=limit)
+
+    async def futures_get_agg_trades(
+        self,
+        symbol: str,
+        from_id: int | None = None,
+        start_time: int | None = None,
+        end_time: int | None = None,
+        limit: int = 500,
+    ) -> list[AggTrade]:
+        """Get USDT-M futures aggregated trades.
+
+        Weight: 20
+
+        Returns:
+            List of AggTrade objects
+        """
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.market.get_agg_trades(
+            http,
+            symbol=symbol,
+            from_id=from_id,
+            start_time=start_time,
+            end_time=end_time,
+            limit=limit,
+        )
+
+    async def futures_get_klines(
+        self,
+        symbol: str,
+        interval: str,
+        start_time: int | None = None,
+        end_time: int | None = None,
+        limit: int = 500,
+    ) -> list[FuturesKline]:
+        """Get USDT-M futures kline/candlestick bars.
+
+        Weight: 5
+
+        Args:
+            symbol: Trading pair (e.g., "BTCUSDT")
+            interval: Kline interval (1m, 5m, 15m, 1h, 4h, 1d, etc.)
+            start_time: Start time in ms
+            end_time: End time in ms
+            limit: Number of klines (max 1500)
+
+        Returns:
+            List of FuturesKline objects with typed fields
+        """
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.market.get_klines(
+            http,
+            symbol=symbol,
+            interval=interval,
+            start_time=start_time,
+            end_time=end_time,
+            limit=limit,
+        )
+
+    async def futures_get_continuous_klines(
+        self,
+        pair: str,
+        contract_type: str,
+        interval: str,
+        start_time: int | None = None,
+        end_time: int | None = None,
+        limit: int = 500,
+    ) -> list[FuturesKline]:
+        """Get USDT-M continuous contract klines.
+
+        Weight: 5
+
+        Args:
+            pair: Trading pair (e.g., "BTCUSDT")
+            contract_type: PERPETUAL, CURRENT_QUARTER, NEXT_QUARTER
+            interval: Kline interval
+
+        Returns:
+            List of FuturesKline objects
+        """
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.market.get_continuous_klines(
+            http,
+            pair=pair,
+            contract_type=contract_type,
+            interval=interval,
+            start_time=start_time,
+            end_time=end_time,
+            limit=limit,
+        )
+
+    @overload
+    async def futures_get_mark_price(self, symbol: str) -> MarkPrice: ...
+    @overload
+    async def futures_get_mark_price(self, symbol: None = None) -> list[MarkPrice]: ...
+
+    async def futures_get_mark_price(
+        self,
+        symbol: str | None = None,
+    ) -> MarkPrice | list[MarkPrice]:
+        """Get USDT-M futures mark price and funding rate.
+
+        Weight: 1
+
+        Args:
+            symbol: Trading pair (returns single) or None (returns all)
+
+        Returns:
+            MarkPrice if symbol specified, else list[MarkPrice]
+        """
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.market.get_mark_price(http, symbol=symbol)
+
+    async def futures_get_funding_rate(
+        self,
+        symbol: str,
+        start_time: int | None = None,
+        end_time: int | None = None,
+        limit: int = 100,
+    ) -> list[FundingRate]:
+        """Get USDT-M futures funding rate history.
+
+        Weight: 1
+
+        Returns:
+            List of FundingRate objects
+        """
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.market.get_funding_rate(
+            http,
+            symbol=symbol,
+            start_time=start_time,
+            end_time=end_time,
+            limit=limit,
+        )
+
+    @overload
+    async def futures_get_ticker_24h(self, symbol: str) -> FuturesTicker24h: ...
+    @overload
+    async def futures_get_ticker_24h(self, symbol: None = None) -> list[FuturesTicker24h]: ...
+
+    async def futures_get_ticker_24h(
+        self,
+        symbol: str | None = None,
+    ) -> FuturesTicker24h | list[FuturesTicker24h]:
+        """Get USDT-M futures 24hr ticker.
+
+        Weight: 1-40 depending on parameters
+
+        Returns:
+            FuturesTicker24h if symbol specified, else list
+        """
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.market.get_ticker_24h(http, symbol=symbol)
+
+    @overload
+    async def futures_get_ticker_price(self, symbol: str) -> TickerPrice: ...
+    @overload
+    async def futures_get_ticker_price(self, symbol: None = None) -> list[TickerPrice]: ...
+
+    async def futures_get_ticker_price(
+        self,
+        symbol: str | None = None,
+    ) -> TickerPrice | list[TickerPrice]:
+        """Get USDT-M futures symbol price ticker.
+
+        Weight: 1-2
+
+        Returns:
+            TickerPrice if symbol specified, else list
+        """
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.market.get_ticker_price(http, symbol=symbol)
+
+    @overload
+    async def futures_get_book_ticker(self, symbol: str) -> BookTicker: ...
+    @overload
+    async def futures_get_book_ticker(self, symbol: None = None) -> list[BookTicker]: ...
+
+    async def futures_get_book_ticker(
+        self,
+        symbol: str | None = None,
+    ) -> BookTicker | list[BookTicker]:
+        """Get USDT-M futures best bid/ask price.
+
+        Weight: 1-2
+
+        Returns:
+            BookTicker if symbol specified, else list
+        """
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.market.get_book_ticker(http, symbol=symbol)
