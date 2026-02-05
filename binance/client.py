@@ -20,9 +20,14 @@ Usage:
             quantity="0.001",
         )
         print(order.order_id)  # Typed access
+
+        # Futures API - lazy initialized on first use
+        mark_price = await client.futures_get_mark_price(symbol="BTCUSDT")
+        print(mark_price.mark_price)
 """
 from typing import Any, overload
 
+from binance._core.config import get_base_url
 from binance._core.http import HTTPClient
 from binance._schemas.spot import (
     Account,
@@ -45,15 +50,27 @@ from binance.api.spot import account, general, market, trade
 
 
 class AsyncClient:
-    """Async client for Binance Spot API.
+    """Async client for Binance API.
 
+    Supports Spot, USDT-M Futures, and COIN-M Futures APIs.
     All methods are async and must be awaited.
     Use as async context manager for automatic connection handling.
 
     All endpoint methods return typed msgspec schemas for type safety.
+
+    Futures clients are lazily initialized on first use to avoid
+    unnecessary connections when only using spot API.
     """
 
-    __slots__ = ("_http",)
+    __slots__ = (
+        "_http",
+        "__http_futures_um",
+        "__http_futures_cm",
+        "_api_key",
+        "_api_secret",
+        "_testnet",
+        "_timeout",
+    )
 
     def __init__(
         self,
@@ -69,41 +86,99 @@ class AsyncClient:
             api_key: Binance API key (required for authenticated endpoints)
             api_secret: Binance API secret (required for signed endpoints)
             testnet: Use testnet URLs if True
-            base_url: Override base URL (ignores testnet if set)
+            base_url: Override spot base URL (ignores testnet if set)
             timeout: Request timeout in seconds
         """
+        # Store for lazy init of futures clients
+        self._api_key = api_key
+        self._api_secret = api_secret
+        self._testnet = testnet
+        self._timeout = timeout
+
+        # Spot API - always initialized
+        spot_url = base_url or get_base_url("spot", testnet)
         self._http = HTTPClient(
             api_key=api_key,
             api_secret=api_secret,
-            testnet=testnet,
-            base_url=base_url,
+            base_url=spot_url,
             timeout=timeout,
+            time_sync_path="/api/v3/time",  # Spot time sync
         )
+
+        # Futures clients - lazy initialized
+        self.__http_futures_um: HTTPClient | None = None
+        self.__http_futures_cm: HTTPClient | None = None
+
+    @property
+    def _http_futures_um(self) -> HTTPClient:
+        """Get USDT-M futures HTTP client (lazy initialized)."""
+        if self.__http_futures_um is None:
+            self.__http_futures_um = HTTPClient(
+                api_key=self._api_key,
+                api_secret=self._api_secret,
+                base_url=get_base_url("futures_um", self._testnet),
+                timeout=self._timeout,
+                time_sync_path=None,  # Share offset from spot client
+            )
+        return self.__http_futures_um
+
+    @property
+    def _http_futures_cm(self) -> HTTPClient:
+        """Get COIN-M futures HTTP client (lazy initialized)."""
+        if self.__http_futures_cm is None:
+            self.__http_futures_cm = HTTPClient(
+                api_key=self._api_key,
+                api_secret=self._api_secret,
+                base_url=get_base_url("futures_cm", self._testnet),
+                timeout=self._timeout,
+                time_sync_path=None,  # Share offset from spot client
+            )
+        return self.__http_futures_cm
 
     async def __aenter__(self) -> "AsyncClient":
         """Async context manager entry."""
         await self._http.connect()
+        # Futures clients connect lazily on first use
         return self
 
     async def __aexit__(self, *args: Any) -> None:
         """Async context manager exit."""
-        await self._http.close()
+        await self.close()
 
     async def connect(self) -> None:
-        """Initialize connection pool.
+        """Initialize spot connection pool.
 
+        Futures clients connect lazily on first use.
         Called automatically when using `async with AsyncClient()`.
         Call manually if not using context manager.
         """
         await self._http.connect()
 
     async def close(self) -> None:
-        """Close connection pool.
+        """Close all connection pools.
 
         Called automatically when using `async with AsyncClient()`.
         Call manually if not using context manager.
         """
         await self._http.close()
+        if self.__http_futures_um is not None:
+            await self.__http_futures_um.close()
+        if self.__http_futures_cm is not None:
+            await self.__http_futures_cm.close()
+
+    async def _ensure_futures_um_connected(self) -> HTTPClient:
+        """Ensure USDT-M futures client is connected."""
+        client = self._http_futures_um
+        if client._session is None:
+            await client.connect()
+        return client
+
+    async def _ensure_futures_cm_connected(self) -> HTTPClient:
+        """Ensure COIN-M futures client is connected."""
+        client = self._http_futures_cm
+        if client._session is None:
+            await client.connect()
+        return client
 
     # ============ General Endpoints ============
 
