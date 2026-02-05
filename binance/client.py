@@ -900,3 +900,355 @@ class AsyncClient:
         """
         http = await self._ensure_futures_um_connected()
         return await futures_um.market.get_book_ticker(http, symbol=symbol)
+
+    # ============ USDT-M Futures Trade Endpoints (Signed) ============
+
+    async def futures_create_order(
+        self,
+        symbol: str,
+        side: str,
+        type: str,
+        quantity: str | None = None,
+        price: str | None = None,
+        time_in_force: str | None = None,
+        reduce_only: bool | None = None,
+        new_client_order_id: str | None = None,
+        stop_price: str | None = None,
+        position_side: str | None = None,
+        close_position: bool | None = None,
+        activation_price: str | None = None,
+        callback_rate: str | None = None,
+        working_type: str | None = None,
+        price_protect: bool | None = None,
+        new_order_resp_type: str | None = None,
+    ) -> FuturesOrder:
+        """Create a new USDT-M futures order.
+
+        Weight: 1
+        Requires: Signature
+
+        Args:
+            symbol: Trading pair (e.g., "BTCUSDT")
+            side: BUY or SELL
+            type: LIMIT, MARKET, STOP, STOP_MARKET, TAKE_PROFIT,
+                  TAKE_PROFIT_MARKET, TRAILING_STOP_MARKET
+            quantity: Order quantity
+            price: Limit price
+            time_in_force: GTC, IOC, FOK, GTX
+            reduce_only: Reduce position only
+            new_client_order_id: Custom order ID for idempotency
+            stop_price: Stop price
+            position_side: LONG, SHORT, or BOTH (hedge mode)
+            close_position: Close all position
+            activation_price: For TRAILING_STOP_MARKET
+            callback_rate: For TRAILING_STOP_MARKET
+            working_type: MARK_PRICE or CONTRACT_PRICE
+            price_protect: Price protection
+            new_order_resp_type: ACK or RESULT
+
+        Returns:
+            FuturesOrder with order details
+
+        Tip:
+            Always provide `new_client_order_id` for idempotent order placement.
+        """
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.trade.create_order(
+            http,
+            symbol=symbol,
+            side=side,
+            type=type,
+            quantity=quantity,
+            price=price,
+            time_in_force=time_in_force,
+            reduce_only=reduce_only,
+            new_client_order_id=new_client_order_id,
+            stop_price=stop_price,
+            position_side=position_side,
+            close_position=close_position,
+            activation_price=activation_price,
+            callback_rate=callback_rate,
+            working_type=working_type,
+            price_protect=price_protect,
+            new_order_resp_type=new_order_resp_type,
+        )
+
+    async def futures_create_test_order(
+        self,
+        symbol: str,
+        side: str,
+        type: str,
+        quantity: str | None = None,
+        price: str | None = None,
+        time_in_force: str | None = None,
+    ) -> dict[str, Any]:
+        """Test USDT-M futures order creation (no actual order placed).
+
+        Weight: 1
+        Requires: Signature
+
+        Returns:
+            Empty dict on success
+        """
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.trade.create_test_order(
+            http,
+            symbol=symbol,
+            side=side,
+            type=type,
+            quantity=quantity,
+            price=price,
+            time_in_force=time_in_force,
+        )
+
+    async def futures_get_order(
+        self,
+        symbol: str,
+        order_id: int | None = None,
+        orig_client_order_id: str | None = None,
+    ) -> FuturesOrder:
+        """Query USDT-M futures order status.
+
+        Weight: 1
+        Requires: Signature
+
+        Returns:
+            FuturesOrder with current status
+        """
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.trade.get_order(
+            http,
+            symbol=symbol,
+            order_id=order_id,
+            orig_client_order_id=orig_client_order_id,
+        )
+
+    async def futures_cancel_order(
+        self,
+        symbol: str,
+        order_id: int | None = None,
+        orig_client_order_id: str | None = None,
+    ) -> FuturesOrder:
+        """Cancel an active USDT-M futures order.
+
+        Weight: 1
+        Requires: Signature
+
+        Returns:
+            FuturesOrder with canceled status
+        """
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.trade.cancel_order(
+            http,
+            symbol=symbol,
+            order_id=order_id,
+            orig_client_order_id=orig_client_order_id,
+        )
+
+    async def futures_cancel_all_open_orders(
+        self,
+        symbol: str,
+    ) -> dict[str, Any]:
+        """Cancel all open USDT-M futures orders on a symbol.
+
+        Weight: 1
+        Requires: Signature
+
+        Returns:
+            Success response
+        """
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.trade.cancel_all_open_orders(http, symbol=symbol)
+
+    async def futures_get_open_orders(
+        self,
+        symbol: str | None = None,
+    ) -> list[FuturesOrder]:
+        """Get all open USDT-M futures orders.
+
+        Weight: 1-40 depending on symbol
+        Requires: Signature
+
+        Returns:
+            List of open FuturesOrder objects
+        """
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.trade.get_open_orders(http, symbol=symbol)
+
+    async def futures_get_all_orders(
+        self,
+        symbol: str,
+        order_id: int | None = None,
+        start_time: int | None = None,
+        end_time: int | None = None,
+        limit: int = 500,
+    ) -> list[FuturesOrder]:
+        """Get all USDT-M futures orders (active, canceled, filled).
+
+        Weight: 5
+        Requires: Signature
+
+        Returns:
+            List of FuturesOrder objects
+        """
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.trade.get_all_orders(
+            http,
+            symbol=symbol,
+            order_id=order_id,
+            start_time=start_time,
+            end_time=end_time,
+            limit=limit,
+        )
+
+    async def futures_create_batch_orders(
+        self,
+        orders: list[dict[str, Any]],
+    ) -> list[FuturesOrder | BatchOrderError]:
+        """Place multiple USDT-M futures orders in a single request.
+
+        Weight: 5
+        Requires: Signature
+
+        Note: Each order in the response can be either a FuturesOrder (success)
+        or a BatchOrderError (failure). Check for 'code' attribute to detect errors.
+
+        Args:
+            orders: List of order dicts (max 5). Each dict should contain:
+                - symbol: Trading pair (required)
+                - side: BUY or SELL (required)
+                - type: Order type (required)
+                - quantity: Order quantity (required for most types)
+                - price: Limit price (required for LIMIT orders)
+                - positionSide: LONG, SHORT, or BOTH (optional)
+                - timeInForce: GTC, IOC, FOK (optional)
+
+        Returns:
+            List of FuturesOrder or BatchOrderError for each order
+
+        Example:
+            orders = [
+                {"symbol": "BTCUSDT", "side": "BUY", "type": "LIMIT",
+                 "quantity": "0.001", "price": "30000", "timeInForce": "GTC"},
+            ]
+            results = await client.futures_create_batch_orders(orders)
+            for result in results:
+                if hasattr(result, 'code'):  # BatchOrderError
+                    print(f"Failed: {result.msg}")
+                else:
+                    print(f"Order {result.order_id} placed")
+        """
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.trade.create_batch_orders(http, orders=orders)
+
+    # ============ USDT-M Futures Account Endpoints (Signed) ============
+
+    async def futures_get_account(self) -> FuturesAccount:
+        """Get USDT-M futures account information.
+
+        Weight: 5
+        Requires: Signature
+
+        Returns:
+            FuturesAccount with balances and positions
+        """
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.account.get_account(http)
+
+    async def futures_get_balance(self) -> list[FuturesBalance]:
+        """Get USDT-M futures account balance.
+
+        Weight: 5
+        Requires: Signature
+
+        Returns:
+            List of FuturesBalance objects
+        """
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.account.get_balance(http)
+
+    async def futures_get_position_risk(
+        self,
+        symbol: str | None = None,
+    ) -> list[PositionRisk]:
+        """Get USDT-M futures position information.
+
+        Weight: 5
+        Requires: Signature
+
+        Args:
+            symbol: Trading pair (optional, returns all if not specified)
+
+        Returns:
+            List of PositionRisk objects
+        """
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.account.get_position_risk(http, symbol=symbol)
+
+    async def futures_set_leverage(
+        self,
+        symbol: str,
+        leverage: int,
+    ) -> LeverageResult:
+        """Change USDT-M futures leverage.
+
+        Weight: 1
+        Requires: Signature
+
+        Args:
+            symbol: Trading pair
+            leverage: Target leverage (1-125)
+
+        Returns:
+            LeverageResult with new leverage and max notional
+        """
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.account.set_leverage(http, symbol=symbol, leverage=leverage)
+
+    async def futures_set_margin_type(
+        self,
+        symbol: str,
+        margin_type: str,
+    ) -> dict[str, Any]:
+        """Change USDT-M futures margin type.
+
+        Weight: 1
+        Requires: Signature
+
+        Args:
+            symbol: Trading pair
+            margin_type: ISOLATED or CROSSED
+
+        Returns:
+            Success response
+        """
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.account.set_margin_type(http, symbol=symbol, margin_type=margin_type)
+
+    async def futures_get_my_trades(
+        self,
+        symbol: str,
+        order_id: int | None = None,
+        start_time: int | None = None,
+        end_time: int | None = None,
+        from_id: int | None = None,
+        limit: int = 500,
+    ) -> list[FuturesMyTrade]:
+        """Get USDT-M futures trades for account.
+
+        Weight: 5
+        Requires: Signature
+
+        Returns:
+            List of FuturesMyTrade objects
+        """
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.account.get_my_trades(
+            http,
+            symbol=symbol,
+            order_id=order_id,
+            start_time=start_time,
+            end_time=end_time,
+            from_id=from_id,
+            limit=limit,
+        )

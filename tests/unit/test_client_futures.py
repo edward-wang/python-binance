@@ -100,3 +100,32 @@ def test_async_client_has_futures_um_market_methods():
     assert hasattr(client, "futures_get_funding_rate")
     assert hasattr(client, "futures_get_ticker_24h")
     assert hasattr(client, "futures_get_ticker_price")
+
+
+# ============ Task 12: USDT-M Futures Trade and Account Methods ============
+
+
+def test_async_client_has_futures_um_trade_methods():
+    """Test that client has USDT-M futures trading methods."""
+    from binance.client import AsyncClient
+
+    client = AsyncClient()
+    assert hasattr(client, "futures_create_order")
+    assert hasattr(client, "futures_create_test_order")
+    assert hasattr(client, "futures_get_order")
+    assert hasattr(client, "futures_cancel_order")
+    assert hasattr(client, "futures_cancel_all_open_orders")
+    assert hasattr(client, "futures_get_open_orders")
+    assert hasattr(client, "futures_create_batch_orders")
+
+
+def test_async_client_has_futures_um_account_methods():
+    """Test that client has USDT-M futures account methods."""
+    from binance.client import AsyncClient
+
+    client = AsyncClient()
+    assert hasattr(client, "futures_get_account")
+    assert hasattr(client, "futures_get_balance")
+    assert hasattr(client, "futures_get_position_risk")
+    assert hasattr(client, "futures_set_leverage")
+    assert hasattr(client, "futures_set_margin_type")
