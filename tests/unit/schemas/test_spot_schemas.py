@@ -358,3 +358,24 @@ class TestDecoderPerformance:
         for _ in range(100):
             result = decoder.decode(data)
             assert result.account_type == "SPOT"
+
+
+class TestFuturesCompatibility:
+    """Test spot schemas work with futures API responses."""
+
+    def test_trade_without_is_best_match(self):
+        """Test Trade schema works without is_best_match (futures compatibility)."""
+        # Futures trade response (no isBestMatch)
+        data = b'{"id": 123, "price": "50000", "qty": "0.1", "quoteQty": "5000", "time": 1699999999, "isBuyerMaker": true}'
+        trade = msgspec.json.decode(data, type=Trade)
+        assert trade.id == 123
+        assert trade.is_best_match is None
+
+    def test_orderbook_with_event_time(self):
+        """Test OrderBook with E and T fields (futures compatibility)."""
+        # Futures orderbook response (has E and T)
+        data = b'{"lastUpdateId": 1027024, "E": 1589436922972, "T": 1589436922959, "bids": [["4.00", "10"]], "asks": [["4.01", "5"]]}'
+        book = msgspec.json.decode(data, type=OrderBook)
+        assert book.last_update_id == 1027024
+        assert book.E == 1589436922972
+        assert book.T == 1589436922959

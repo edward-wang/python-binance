@@ -104,15 +104,28 @@ class ExchangeInfo(BaseStruct):
 
 
 class OrderBook(BaseStruct):
-    """Order book from GET /api/v3/depth."""
+    """Order book from GET /api/v3/depth.
+
+    Note: E and T fields are optional - present in futures API responses
+    (event time and transaction time). These are uppercase in the API
+    and preserved as-is by rename="camel".
+    """
 
     last_update_id: Annotated[int, msgspec.Meta(description="Last update ID")]
     bids: Annotated[list[list[str]], msgspec.Meta(description="Bid orders [price, qty]")]
     asks: Annotated[list[list[str]], msgspec.Meta(description="Ask orders [price, qty]")]
+    # Futures-only fields (optional for spot compatibility)
+    # These use uppercase names in the API response (preserved by rename="camel")
+    E: Annotated[int | None, msgspec.Meta(description="Event time (futures only)")] = None  # noqa: N815
+    T: Annotated[int | None, msgspec.Meta(description="Transaction time (futures only)")] = None  # noqa: N815
 
 
 class Trade(BaseStruct):
-    """Public trade from GET /api/v3/trades."""
+    """Public trade from GET /api/v3/trades.
+
+    Note: is_best_match is optional for futures API compatibility
+    (futures /trades endpoint doesn't return this field).
+    """
 
     id: Annotated[int, msgspec.Meta(description="Trade ID")]
     price: Annotated[str, msgspec.Meta(description="Price")]
@@ -120,7 +133,7 @@ class Trade(BaseStruct):
     quote_qty: Annotated[str, msgspec.Meta(description="Quote quantity")]
     time: Annotated[int, msgspec.Meta(description="Trade time")]
     is_buyer_maker: Annotated[bool, msgspec.Meta(description="Buyer is maker")]
-    is_best_match: Annotated[bool, msgspec.Meta(description="Best match")]
+    is_best_match: Annotated[bool | None, msgspec.Meta(description="Best match (spot only)")] = None
 
 
 class AggTrade(BaseStruct):
