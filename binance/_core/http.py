@@ -58,6 +58,7 @@ class HTTPClient:
         "_session",
         "_connector",
         "_timeout",
+        "_time_sync_path",
     )
 
     def __init__(
@@ -67,6 +68,7 @@ class HTTPClient:
         testnet: bool = False,
         base_url: str | None = None,
         timeout: float = TIMEOUT_DEFAULT,
+        time_sync_path: str | None = "/api/v3/time",
     ) -> None:
         """Initialize HTTP client.
 
@@ -76,6 +78,11 @@ class HTTPClient:
             testnet: Use testnet URLs if True
             base_url: Override base URL (ignores testnet if set)
             timeout: Request timeout in seconds
+            time_sync_path: Path for time sync endpoint. Use:
+                - "/api/v3/time" for Spot (default)
+                - "/fapi/v1/time" for USDT-M Futures
+                - "/dapi/v1/time" for COIN-M Futures
+                - None to disable time sync (share offset from another client)
         """
         self._api_key = api_key
         self._api_secret = api_secret
@@ -83,6 +90,7 @@ class HTTPClient:
         self._session: aiohttp.ClientSession | None = None
         self._connector: aiohttp.TCPConnector | None = None
         self._timeout = aiohttp.ClientTimeout(total=timeout)
+        self._time_sync_path = time_sync_path
 
     async def connect(self) -> None:
         """Initialize connection pool and sync server time."""
@@ -96,8 +104,9 @@ class HTTPClient:
             timeout=self._timeout,
             json_serialize=lambda x: orjson.dumps(x).decode(),
         )
-        # Initial time sync
-        await self._sync_server_time()
+        # Conditional time sync - skip if disabled or offset already set
+        if self._time_sync_path and not context.has_offset():
+            await self._sync_server_time()
 
     async def close(self) -> None:
         """Close connection pool."""
@@ -115,7 +124,9 @@ class HTTPClient:
 
     async def _sync_server_time(self) -> None:
         """Fetch server time and update offset."""
-        data = await self.request("GET", "/api/v3/time", signed=False)
+        if self._time_sync_path is None:
+            return
+        data = await self.request("GET", self._time_sync_path, signed=False)
         context.update_offset(data["serverTime"])
 
     async def request(
@@ -243,26 +254,51 @@ class HTTPClient:
 
         url = f"{self._base_url}{path}"
 
+        try:
+            return await self._do_request_raw(method, url, params, headers)
+        except TimestampError:
+            # Self-healing: sync time and retry once
+            await self._sync_server_time()
+            if signed:
+                # Re-sign with updated timestamp
+                params = {k: v for k, v in params.items() if k not in ("timestamp", "signature")}
+                params = sign_request(params, self._api_secret)
+            return await self._do_request_raw(method, url, params, headers)
+
+    async def _do_request_raw(
+        self,
+        method: str,
+        url: str,
+        params: dict[str, Any],
+        headers: dict[str, str],
+    ) -> bytes:
+        """Execute single HTTP request returning raw bytes."""
         if self._session is None:
             raise RuntimeError("HTTPClient not connected. Call connect() first.")
 
-        async with self._session.request(
-            method,
-            url,
-            params=params if method == "GET" else None,
-            data=params if method != "GET" else None,
-            headers=headers,
-        ) as response:
-            raw = await response.read()
+        try:
+            async with self._session.request(
+                method,
+                url,
+                params=params if method == "GET" else None,
+                data=params if method != "GET" else None,
+                headers=headers,
+            ) as response:
+                raw = await response.read()
 
-            # Extract metadata and check errors
-            meta = APIErrorMeta(
-                used_weight=_parse_int(response.headers.get("X-MBX-USED-WEIGHT-1M")),
-                retry_after=_parse_int(response.headers.get("Retry-After")),
-            )
+                # Extract metadata and check errors
+                meta = APIErrorMeta(
+                    used_weight=_parse_int(response.headers.get("X-MBX-USED-WEIGHT-1M")),
+                    retry_after=_parse_int(response.headers.get("Retry-After")),
+                )
 
-            if response.status >= 400:
-                data = orjson.loads(raw) if raw else {}
-                raise_for_error(response.status, data, meta)
+                if response.status >= 400:
+                    data = orjson.loads(raw) if raw else {}
+                    raise_for_error(response.status, data, meta)
 
-            return raw
+                return raw
+
+        except aiohttp.ClientConnectorError as e:
+            raise ConnectionError(str(e), method=method, path=url) from e
+        except aiohttp.ServerTimeoutError as e:
+            raise TimeoutError(str(e), method=method, path=url) from e

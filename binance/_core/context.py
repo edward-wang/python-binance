@@ -62,6 +62,17 @@ class EngineContext:
         """
         return time.time() - self._last_sync > interval
 
+    def has_offset(self) -> bool:
+        """Check if time offset has been set.
+
+        Used by HTTPClient to skip redundant time sync when a previous
+        client has already synchronized with the server.
+
+        Returns:
+            True if time offset is non-zero (sync has been performed).
+        """
+        return self.time_offset != 0
+
 
 # Global singleton - used by auth.py and http.py
 context = EngineContext()
