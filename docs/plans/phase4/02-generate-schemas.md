@@ -4,11 +4,116 @@
 
 **Goal:** Create `binance/_schemas/futures.py` with typed schemas for Futures API responses.
 
-**Prerequisites:** Task 1-4 complete (api/futures_um/ and api/futures_cm/ modules exist)
+**Prerequisites:** Task 1 complete (config URLs added)
+
+**Note:** Execute this file BEFORE 01-generate-endpoints.md Tasks 5-7, as endpoints import these schemas.
 
 ---
 
-## Task 5: Create Futures Schemas File
+## Task 2: Update Spot Schemas for Futures Compatibility
+
+**Files:**
+- Modify: `binance/_schemas/spot.py`
+- Modify: `tests/unit/schemas/test_spot_schemas.py`
+
+**Context:** Some spot schemas are reused for futures endpoints, but have slight differences:
+- `Trade`: Futures doesn't have `isBestMatch` field
+- `OrderBook`: Futures has extra `E` (event time) and `T` (transaction time) fields
+
+**Step 1: Write compatibility test**
+
+```python
+# Add to tests/unit/schemas/test_spot_schemas.py
+
+def test_trade_without_is_best_match():
+    """Test Trade schema works without is_best_match (futures compatibility)."""
+    from binance._schemas.spot import Trade
+    import msgspec
+
+    # Futures trade response (no isBestMatch)
+    data = b'{"id": 123, "price": "50000", "qty": "0.1", "quoteQty": "5000", "time": 1699999999, "isBuyerMaker": true}'
+    trade = msgspec.json.decode(data, type=Trade)
+    assert trade.id == 123
+    assert trade.is_best_match is None
+
+
+def test_orderbook_with_event_time():
+    """Test OrderBook with E and T fields (futures compatibility)."""
+    from binance._schemas.spot import OrderBook
+    import msgspec
+
+    # Futures orderbook response (has E and T)
+    data = b'{"lastUpdateId": 1027024, "E": 1589436922972, "T": 1589436922959, "bids": [["4.00", "10"]], "asks": [["4.01", "5"]]}'
+    book = msgspec.json.decode(data, type=OrderBook)
+    assert book.last_update_id == 1027024
+    assert book.e == 1589436922972
+    assert book.t == 1589436922959
+```
+
+**Step 2: Run test to verify it fails**
+
+Run: `pytest tests/unit/schemas/test_spot_schemas.py -v -k "without_is_best_match or with_event_time"`
+Expected: FAIL
+
+**Step 3: Update spot schemas for compatibility**
+
+```python
+# binance/_schemas/spot.py - modify Trade class
+
+class Trade(BaseStruct):
+    """Public trade from GET /api/v3/trades.
+
+    Note: is_best_match is optional for futures API compatibility
+    (futures /trades endpoint doesn't return this field).
+    """
+
+    id: Annotated[int, msgspec.Meta(description="Trade ID")]
+    price: Annotated[str, msgspec.Meta(description="Price")]
+    qty: Annotated[str, msgspec.Meta(description="Quantity")]
+    quote_qty: Annotated[str, msgspec.Meta(description="Quote quantity")]
+    time: Annotated[int, msgspec.Meta(description="Trade time")]
+    is_buyer_maker: Annotated[bool, msgspec.Meta(description="Buyer is maker")]
+    is_best_match: Annotated[bool | None, msgspec.Meta(description="Best match (spot only)")] = None
+```
+
+```python
+# binance/_schemas/spot.py - modify OrderBook class
+
+class OrderBook(BaseStruct):
+    """Order book from GET /api/v3/depth.
+
+    Note: e and t fields are optional - present in futures API responses
+    (event time and transaction time).
+    """
+
+    last_update_id: Annotated[int, msgspec.Meta(description="Last update ID")]
+    bids: Annotated[list[list[str]], msgspec.Meta(description="Bid orders [price, qty]")]
+    asks: Annotated[list[list[str]], msgspec.Meta(description="Ask orders [price, qty]")]
+    # Futures-only fields (optional for spot compatibility)
+    e: Annotated[int | None, msgspec.Meta(description="Event time (futures only)")] = None
+    t: Annotated[int | None, msgspec.Meta(description="Transaction time (futures only)")] = None
+```
+
+**Step 4: Run test to verify it passes**
+
+Run: `pytest tests/unit/schemas/test_spot_schemas.py -v`
+Expected: PASS
+
+**Step 5: Verify existing spot tests still pass**
+
+Run: `pytest tests/ -v -k "spot"`
+Expected: All PASS
+
+**Step 6: Commit**
+
+```bash
+git add binance/_schemas/spot.py tests/unit/schemas/test_spot_schemas.py
+git commit -m "fix: make spot schemas compatible with futures API responses"
+```
+
+---
+
+## Task 3: Create Futures Schemas File
 
 **Files:**
 - Create: `binance/_schemas/futures.py`
@@ -28,7 +133,9 @@ def test_futures_schemas_importable():
         FuturesKline,
         FuturesOrder,
         FuturesAccount,
+        FuturesAsset,
         FuturesBalance,
+        AccountPosition,
         PositionRisk,
         MarkPrice,
         FundingRate,
@@ -39,6 +146,7 @@ def test_futures_schemas_importable():
     assert FuturesExchangeInfo is not None
     assert FuturesKline is not None
     assert FuturesOrder is not None
+    assert AccountPosition is not None
 ```
 
 **Step 2: Run test to verify it fails**
@@ -287,11 +395,29 @@ class FuturesMyTrade(BaseStruct):
     realized_pnl: Annotated[str | None, msgspec.Meta(description="Realized PnL")] = None
 
 
+class BatchOrderError(BaseStruct):
+    """Error response for a single order in batch orders.
+
+    When an order in a batch fails, the API returns this instead of FuturesOrder.
+    """
+
+    code: Annotated[int, msgspec.Meta(description="Error code")]
+    msg: Annotated[str, msgspec.Meta(description="Error message")]
+
+
+# BatchOrderResult is a union - each item in batch response is either order or error
+# Use msgspec.Struct with tag for discrimination, or handle manually in decoder
+BatchOrderResult = FuturesOrder | BatchOrderError
+
+
 # ============ Account/Position ============
 
 
 class FuturesAsset(BaseStruct):
-    """Asset in futures account."""
+    """Asset in futures account.
+
+    Note: margin_available is USDT-M only (v2 endpoint), COIN-M (v1) doesn't return it.
+    """
 
     asset: Annotated[str, msgspec.Meta(description="Asset name")]
     wallet_balance: Annotated[str, msgspec.Meta(description="Wallet balance")]
@@ -305,27 +431,35 @@ class FuturesAsset(BaseStruct):
     cross_wallet_balance: Annotated[str | None, msgspec.Meta(description="Cross wallet balance")] = None
     cross_un_pnl: Annotated[str | None, msgspec.Meta(description="Cross unrealized PnL")] = None
     available_balance: Annotated[str | None, msgspec.Meta(description="Available balance")] = None
+    margin_available: Annotated[bool | None, msgspec.Meta(description="Margin available (USDT-M only)")] = None
     update_time: Annotated[int | None, msgspec.Meta(description="Update time")] = None
 
 
-class FuturesPosition(BaseStruct):
-    """Position in futures account."""
+class AccountPosition(BaseStruct):
+    """Position in GET /fapi/v2/account response.
+
+    Note: This is different from PositionRisk (GET /fapi/v2/positionRisk).
+    Account positions have margin/notional details, while PositionRisk has
+    liquidation/mark price details.
+    """
 
     symbol: Annotated[str, msgspec.Meta(description="Trading pair")]
     position_amt: Annotated[str, msgspec.Meta(description="Position amount")]
     entry_price: Annotated[str, msgspec.Meta(description="Entry price")]
-    break_even_price: Annotated[str | None, msgspec.Meta(description="Break even price")] = None
-    mark_price: Annotated[str, msgspec.Meta(description="Mark price")]
     unrealized_profit: Annotated[str, msgspec.Meta(description="Unrealized profit")]
-    liquidation_price: Annotated[str, msgspec.Meta(description="Liquidation price")]
     leverage: Annotated[str, msgspec.Meta(description="Leverage")]
-    max_notional_value: Annotated[str | None, msgspec.Meta(description="Max notional value")] = None
-    margin_type: Annotated[str, msgspec.Meta(description="Margin type")]
-    isolated_margin: Annotated[str | None, msgspec.Meta(description="Isolated margin")] = None
-    is_auto_add_margin: Annotated[str | None, msgspec.Meta(description="Auto add margin")] = None
     position_side: Annotated[str, msgspec.Meta(description="Position side")]
-    notional: Annotated[str | None, msgspec.Meta(description="Notional value")] = None
-    isolated_wallet: Annotated[str | None, msgspec.Meta(description="Isolated wallet")] = None
+    initial_margin: Annotated[str, msgspec.Meta(description="Initial margin")]
+    maint_margin: Annotated[str, msgspec.Meta(description="Maintenance margin")]
+    position_initial_margin: Annotated[str, msgspec.Meta(description="Position initial margin")]
+    open_order_initial_margin: Annotated[str, msgspec.Meta(description="Open order initial margin")]
+    isolated: Annotated[bool, msgspec.Meta(description="Is isolated margin")]
+    max_notional: Annotated[str | None, msgspec.Meta(description="Max notional")] = None
+    bid_notional: Annotated[str | None, msgspec.Meta(description="Bid notional")] = None
+    ask_notional: Annotated[str | None, msgspec.Meta(description="Ask notional")] = None
+    break_even_price: Annotated[str | None, msgspec.Meta(description="Break even price")] = None
+    max_qty: Annotated[str | None, msgspec.Meta(description="Max qty (COIN-M)")] = None
+    notional_value: Annotated[str | None, msgspec.Meta(description="Notional value (COIN-M)")] = None
     update_time: Annotated[int | None, msgspec.Meta(description="Update time")] = None
 
 
@@ -344,7 +478,7 @@ class FuturesAccount(BaseStruct):
     available_balance: Annotated[str, msgspec.Meta(description="Available balance")]
     max_withdraw_amount: Annotated[str, msgspec.Meta(description="Max withdraw amount")]
     assets: Annotated[list[FuturesAsset], msgspec.Meta(description="Asset balances")]
-    positions: Annotated[list[FuturesPosition], msgspec.Meta(description="Positions")]
+    positions: Annotated[list[AccountPosition], msgspec.Meta(description="Positions")]
     can_trade: Annotated[bool | None, msgspec.Meta(description="Can trade")] = None
     can_deposit: Annotated[bool | None, msgspec.Meta(description="Can deposit")] = None
     can_withdraw: Annotated[bool | None, msgspec.Meta(description="Can withdraw")] = None
@@ -353,46 +487,73 @@ class FuturesAccount(BaseStruct):
 
 
 class FuturesBalance(BaseStruct):
-    """Futures balance from GET /fapi/v2/balance."""
+    """Futures balance from GET /fapi/v2/balance (USDT-M) or /dapi/v1/balance (COIN-M).
+
+    Note: USDT-M and COIN-M have different field names:
+    - USDT-M: maxWithdrawAmount, marginAvailable
+    - COIN-M: withdrawAvailable (no marginAvailable)
+    """
 
     account_alias: Annotated[str, msgspec.Meta(description="Account alias")]
     asset: Annotated[str, msgspec.Meta(description="Asset name")]
     balance: Annotated[str, msgspec.Meta(description="Wallet balance")]
     cross_wallet_balance: Annotated[str, msgspec.Meta(description="Cross wallet balance")]
-    cross_un_pnl: Annotated[str | None, msgspec.Meta(description="Cross unrealized PnL")] = None
     available_balance: Annotated[str, msgspec.Meta(description="Available balance")]
-    max_withdraw_amount: Annotated[str, msgspec.Meta(description="Max withdraw amount")]
-    margin_available: Annotated[bool | None, msgspec.Meta(description="Margin available")] = None
+    cross_un_pnl: Annotated[str | None, msgspec.Meta(description="Cross unrealized PnL")] = None
+    # USDT-M only fields
+    max_withdraw_amount: Annotated[str | None, msgspec.Meta(description="Max withdraw amount (USDT-M)")] = None
+    margin_available: Annotated[bool | None, msgspec.Meta(description="Margin available (USDT-M)")] = None
+    # COIN-M only fields
+    withdraw_available: Annotated[str | None, msgspec.Meta(description="Withdraw available (COIN-M)")] = None
     update_time: Annotated[int | None, msgspec.Meta(description="Update time")] = None
 
 
 class PositionRisk(BaseStruct):
-    """Position risk from GET /fapi/v2/positionRisk."""
+    """Position risk from GET /fapi/v2/positionRisk (USDT-M) or /dapi/v1/positionRisk (COIN-M).
+
+    Note: Field `un_realized_profit` uses underscore because the API returns
+    `unRealizedProfit` (capital R), unlike `account` endpoint which returns
+    `unrealizedProfit` (lowercase r). This is a Binance API inconsistency.
+
+    USDT-M and COIN-M differences:
+    - USDT-M: maxNotionalValue, notional, isolatedWallet
+    - COIN-M: maxQty (instead of maxNotionalValue)
+    """
 
     symbol: Annotated[str, msgspec.Meta(description="Trading pair")]
     position_amt: Annotated[str, msgspec.Meta(description="Position amount")]
     entry_price: Annotated[str, msgspec.Meta(description="Entry price")]
     break_even_price: Annotated[str | None, msgspec.Meta(description="Break even price")] = None
     mark_price: Annotated[str, msgspec.Meta(description="Mark price")]
+    # API returns `unRealizedProfit` (capital R) - different from account endpoint
     un_realized_profit: Annotated[str, msgspec.Meta(description="Unrealized profit")]
     liquidation_price: Annotated[str, msgspec.Meta(description="Liquidation price")]
     leverage: Annotated[str, msgspec.Meta(description="Leverage")]
-    max_notional_value: Annotated[str | None, msgspec.Meta(description="Max notional value")] = None
     margin_type: Annotated[str, msgspec.Meta(description="Margin type")]
+    position_side: Annotated[str, msgspec.Meta(description="Position side")]
     isolated_margin: Annotated[str | None, msgspec.Meta(description="Isolated margin")] = None
     is_auto_add_margin: Annotated[str | None, msgspec.Meta(description="Auto add margin")] = None
-    position_side: Annotated[str, msgspec.Meta(description="Position side")]
-    notional: Annotated[str | None, msgspec.Meta(description="Notional value")] = None
-    isolated_wallet: Annotated[str | None, msgspec.Meta(description="Isolated wallet")] = None
+    # USDT-M only fields
+    max_notional_value: Annotated[str | None, msgspec.Meta(description="Max notional value (USDT-M)")] = None
+    notional: Annotated[str | None, msgspec.Meta(description="Notional value (USDT-M)")] = None
+    isolated_wallet: Annotated[str | None, msgspec.Meta(description="Isolated wallet (USDT-M)")] = None
+    # COIN-M only fields
+    max_qty: Annotated[str | None, msgspec.Meta(description="Max quantity (COIN-M)")] = None
     update_time: Annotated[int | None, msgspec.Meta(description="Update time")] = None
 
 
 class LeverageResult(BaseStruct):
-    """Result from POST /fapi/v1/leverage."""
+    """Result from POST /fapi/v1/leverage (USDT-M) or /dapi/v1/leverage (COIN-M).
+
+    Note: USDT-M returns maxNotionalValue, COIN-M returns maxQty.
+    """
 
     leverage: Annotated[int, msgspec.Meta(description="New leverage")]
-    max_notional_value: Annotated[str, msgspec.Meta(description="Max notional value")]
     symbol: Annotated[str, msgspec.Meta(description="Trading pair")]
+    # USDT-M only
+    max_notional_value: Annotated[str | None, msgspec.Meta(description="Max notional value (USDT-M)")] = None
+    # COIN-M only
+    max_qty: Annotated[str | None, msgspec.Meta(description="Max quantity (COIN-M)")] = None
 ```
 
 **Step 4: Run test to verify it passes**
@@ -414,7 +575,7 @@ git commit -m "feat: add futures API schemas with typed structs"
 
 ---
 
-## Task 6: Add Comprehensive Schema Tests
+## Task 4: Add Comprehensive Schema Tests
 
 **Files:**
 - Modify: `tests/unit/schemas/test_futures_schemas.py`
@@ -435,7 +596,7 @@ from binance._schemas.futures import (
     FuturesAccount,
     FuturesAsset,
     FuturesBalance,
-    FuturesPosition,
+    AccountPosition,
     PositionRisk,
     MarkPrice,
     FundingRate,
@@ -750,7 +911,7 @@ git commit -m "test: add comprehensive futures schema tests"
 
 ---
 
-## Task 7: Update Schema Exports
+## Task 5: Update Schema Exports
 
 **Files:**
 - Modify: `binance/_schemas/__init__.py`
@@ -771,13 +932,16 @@ from binance._schemas.futures import (
     FuturesKline,
     FuturesOrder,
     FuturesAccount,
+    FuturesAsset,
     FuturesBalance,
+    AccountPosition,
     PositionRisk,
     MarkPrice,
     FundingRate,
     LeverageResult,
     FuturesTicker24h,
     FuturesMyTrade,
+    BatchOrderError,
 )
 
 __all__ = [
@@ -791,13 +955,16 @@ __all__ = [
     "FuturesKline",
     "FuturesOrder",
     "FuturesAccount",
+    "FuturesAsset",
     "FuturesBalance",
+    "AccountPosition",
     "PositionRisk",
     "MarkPrice",
     "FundingRate",
     "LeverageResult",
     "FuturesTicker24h",
     "FuturesMyTrade",
+    "BatchOrderError",
 ]
 ```
 

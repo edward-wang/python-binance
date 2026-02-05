@@ -11,18 +11,28 @@ This directory contains the implementation plan for adding USDT-M (umfutures) an
 # Read the overview first
 cat docs/plans/phase4/00-overview.md
 
-# Then execute tasks in order
+# Then execute tasks in the order specified below
 ```
+
+## ⚠️ IMPORTANT: Execution Order
+
+**Execute tasks in this order (schemas before endpoints):**
+
+1. **Task 1** from `01-generate-endpoints.md` - Add config URLs
+2. **Tasks 2-5** from `02-generate-schemas.md` - Update spot schemas + create futures schemas FIRST
+3. **Tasks 6-8** from `01-generate-endpoints.md` - Create endpoints (they import schemas)
+4. **Tasks 9-14** from `03-async-client.md` - Extend AsyncClient
+5. **Tasks 15-21** from `04-integration-testing.md` - Integration tests
 
 ## Plan Files
 
 | File | Description | Tasks |
 |------|-------------|-------|
 | [00-overview.md](./00-overview.md) | Prerequisites, architecture, key decisions | - |
-| [01-generate-endpoints.md](./01-generate-endpoints.md) | Create api/futures_um/ and api/futures_cm/ | 1-4 |
-| [02-generate-schemas.md](./02-generate-schemas.md) | Create _schemas/futures.py | 5-7 |
-| [03-async-client.md](./03-async-client.md) | Extend AsyncClient with futures methods | 8-11 |
-| [04-integration-testing.md](./04-integration-testing.md) | Testnet integration tests | 12-18 |
+| [01-generate-endpoints.md](./01-generate-endpoints.md) | Add config URLs + Create api/futures_um/ and api/futures_cm/ | 1, 6-8 |
+| [02-generate-schemas.md](./02-generate-schemas.md) | Update spot schemas + create _schemas/futures.py | 2-5 |
+| [03-async-client.md](./03-async-client.md) | Extend AsyncClient with futures methods | 9-14 |
+| [04-integration-testing.md](./04-integration-testing.md) | Testnet integration tests | 15-21 |
 
 ## Summary
 
@@ -78,7 +88,7 @@ await client.futures_coin_get_klines(symbol="BTCUSD_PERP", interval="1h")
 
 ## Estimated Scope
 
-- **18 tasks** across 4 plan files
+- **21 tasks** across 4 plan files
 - **~2000 lines** of new code
 - **~100 new tests**
 - **50+ new endpoints** (25 UM + 25 CM)

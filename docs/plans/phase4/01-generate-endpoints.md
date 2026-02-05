@@ -6,6 +6,11 @@
 
 **Prerequisites:** Phase 3 complete, futures specs in `specs/openapi/umfutures/` and `specs/openapi/cmfutures/`
 
+**⚠️ Execution Order:**
+1. Execute **Task 1** (config URLs) from this file
+2. Execute **Tasks 2-5** from `02-generate-schemas.md` (schemas must exist first)
+3. Return here for **Tasks 6-8** (endpoint modules)
+
 ---
 
 ## Task 1: Add Futures Base URLs to Config
@@ -70,7 +75,7 @@ git commit -m "feat: add futures API base URLs to config"
 
 ---
 
-## Task 2: Create USDT-M Futures Package Structure
+## Task 6: Create USDT-M Futures Package Structure
 
 **Files:**
 - Create: `binance/api/futures_um/__init__.py`
@@ -474,11 +479,12 @@ from typing import Any
 import msgspec
 
 from binance._core.http import HTTPClient
-from binance._schemas.futures import FuturesOrder
+from binance._schemas.futures import FuturesOrder, BatchOrderError
 
 # Pre-compiled decoders
 _order_decoder = msgspec.json.Decoder(FuturesOrder)
 _order_list_decoder = msgspec.json.Decoder(list[FuturesOrder])
+_batch_order_decoder = msgspec.json.Decoder(list[FuturesOrder | BatchOrderError])
 
 
 async def create_order(
@@ -715,6 +721,57 @@ async def get_all_orders(
 
     raw = await http.request_raw("GET", "/fapi/v1/allOrders", signed=True, params=params)
     return _order_list_decoder.decode(raw)
+
+
+async def create_batch_orders(
+    http: HTTPClient,
+    orders: list[dict[str, Any]],
+) -> list[FuturesOrder | BatchOrderError]:
+    """Place multiple orders in a single request.
+
+    Weight: 5
+    Requires: Signature
+
+    Note: Each order in the response can be either a FuturesOrder (success)
+    or a BatchOrderError (failure). Check for 'code' field to detect errors.
+
+    Args:
+        orders: List of order dicts (max 5). Each dict should contain:
+            - symbol: Trading pair (required)
+            - side: BUY or SELL (required)
+            - type: Order type (required)
+            - quantity: Order quantity (required for most types)
+            - price: Limit price (required for LIMIT orders)
+            - positionSide: LONG, SHORT, or BOTH (optional)
+            - timeInForce: GTC, IOC, FOK (optional)
+            - reduceOnly: true/false (optional)
+            - stopPrice: Stop price (for STOP orders)
+
+    Returns:
+        List of FuturesOrder or BatchOrderError for each order
+
+    Example:
+        orders = [
+            {"symbol": "BTCUSDT", "side": "BUY", "type": "LIMIT",
+             "quantity": "0.001", "price": "30000", "timeInForce": "GTC"},
+            {"symbol": "BTCUSDT", "side": "SELL", "type": "LIMIT",
+             "quantity": "0.001", "price": "35000", "timeInForce": "GTC"},
+        ]
+        results = await create_batch_orders(http, orders)
+        for result in results:
+            if isinstance(result, BatchOrderError):
+                print(f"Order failed: {result.code} - {result.msg}")
+            else:
+                print(f"Order placed: {result.order_id}")
+    """
+    import orjson
+
+    # Binance requires batchOrders as a JSON string, not a list
+    params: dict[str, Any] = {
+        "batchOrders": orjson.dumps(orders).decode(),
+    }
+    raw = await http.request_raw("POST", "/fapi/v1/batchOrders", signed=True, params=params)
+    return _batch_order_decoder.decode(raw)
 ```
 
 ```python
@@ -886,7 +943,7 @@ git commit -m "feat: create USDT-M futures endpoint modules with typed returns"
 
 ---
 
-## Task 3: Create COIN-M Futures Package Structure
+## Task 7: Create COIN-M Futures Package Structure
 
 **Files:**
 - Create: `binance/api/futures_cm/__init__.py`
@@ -970,7 +1027,7 @@ git commit -m "feat: create COIN-M futures endpoint modules with typed returns"
 
 ---
 
-## Task 4: Add Unit Tests for Futures Endpoints
+## Task 8: Add Unit Tests for Futures Endpoints
 
 **Files:**
 - Create: `tests/unit/api/test_futures_um_general.py`

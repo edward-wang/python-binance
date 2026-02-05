@@ -4,7 +4,7 @@
 
 **Goal:** Verify AsyncClient futures methods work with real Binance Futures API on testnet, including error scenarios.
 
-**Prerequisites:** Tasks 1-11 complete (AsyncClient with all futures methods)
+**Prerequisites:** Tasks 1-14 complete (AsyncClient with all futures methods)
 
 ---
 
@@ -23,7 +23,7 @@ Before running integration tests, you need:
 
 ---
 
-## Task 12: Create Futures Test Fixtures
+## Task 15: Create Futures Test Fixtures
 
 **Files:**
 - Modify: `tests/integration/conftest.py`
@@ -86,7 +86,7 @@ git commit -m "test: add futures testnet fixtures"
 
 ---
 
-## Task 13: Public Futures Endpoint Integration Tests
+## Task 16: Public Futures Endpoint Integration Tests
 
 **Files:**
 - Create: `tests/integration/test_futures_public.py`
@@ -314,7 +314,7 @@ git commit -m "test: add public futures endpoint integration tests"
 
 ---
 
-## Task 14: Authenticated Futures Endpoint Integration Tests
+## Task 17: Authenticated Futures Endpoint Integration Tests
 
 **Files:**
 - Create: `tests/integration/test_futures_account.py`
@@ -422,7 +422,7 @@ git commit -m "test: add authenticated futures account integration tests"
 
 ---
 
-## Task 15: Futures Trading Integration Tests
+## Task 18: Futures Trading Integration Tests
 
 **Files:**
 - Create: `tests/integration/test_futures_trading.py`
@@ -632,7 +632,7 @@ git commit -m "test: add futures trading integration tests"
 
 ---
 
-## Task 16: Error Scenario Tests
+## Task 19: Error Scenario Tests
 
 **Files:**
 - Create: `tests/integration/test_futures_errors.py`
@@ -765,7 +765,7 @@ git commit -m "test: add futures error scenario integration tests"
 
 ---
 
-## Task 17: Concurrent Futures Request Tests
+## Task 20: Concurrent Futures Request Tests
 
 **Files:**
 - Create: `tests/integration/test_futures_concurrent.py`
@@ -882,7 +882,7 @@ git commit -m "test: add concurrent futures request tests"
 
 ---
 
-## Task 18: Final Verification
+## Task 21: Final Verification
 
 **Step 1: Run all unit tests**
 

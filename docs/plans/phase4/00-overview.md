@@ -52,12 +52,15 @@ ls specs/openapi/umfutures/get_fapi_v1_klines.yaml \
 
 ## Phase 4 File Structure
 
-| File | Tasks | Description |
-|------|-------|-------------|
-| [01-generate-endpoints.md](./01-generate-endpoints.md) | 1-4 | Create api/futures_um/ and api/futures_cm/ with typed returns |
-| [02-generate-schemas.md](./02-generate-schemas.md) | 5-7 | Create _schemas/futures.py with futures-specific types |
-| [03-async-client.md](./03-async-client.md) | 8-11 | Extend AsyncClient with futures methods |
-| [04-integration-testing.md](./04-integration-testing.md) | 12-18 | Integration tests on futures testnet |
+**⚠️ Execution Order:** Execute tasks in this order (schemas before endpoints):
+
+| Execution Order | File | Tasks | Description |
+|----------------|------|-------|-------------|
+| 1 | [01-generate-endpoints.md](./01-generate-endpoints.md) | 1 | Add config URLs |
+| 2 | [02-generate-schemas.md](./02-generate-schemas.md) | 2-5 | Update spot schemas + create _schemas/futures.py (MUST be before endpoints) |
+| 3 | [01-generate-endpoints.md](./01-generate-endpoints.md) | 6-8 | Create api/futures_um/ and api/futures_cm/ |
+| 4 | [03-async-client.md](./03-async-client.md) | 9-14 | Extend AsyncClient with futures methods |
+| 5 | [04-integration-testing.md](./04-integration-testing.md) | 15-21 | Integration tests on futures testnet |
 
 ---
 
@@ -86,6 +89,13 @@ binance/api/
     ├── trade.py
     └── account.py
 ```
+
+**Why duplication over shared abstraction:**
+- Mechanical duplication (only path differs) is easy to maintain
+- Direct implementations simplify debugging with explicit call paths
+- Allows APIs to diverge independently as Binance evolves
+- Follows same pattern as existing Spot API
+- Abstraction would add complexity without significant benefit
 
 ### 2. Shared Futures Schemas
 
@@ -217,7 +227,7 @@ Focus on 25 core futures trading endpoints per API type.
 | `DELETE /fapi/v1/order` | `FuturesOrder` |
 | `GET /fapi/v1/openOrders` | `list[FuturesOrder]` |
 | `DELETE /fapi/v1/allOpenOrders` | `dict` |
-| `POST /fapi/v1/batchOrders` | `list[FuturesOrder]` |
+| `POST /fapi/v1/batchOrders` | `list[FuturesOrder \| BatchOrderError]` |
 
 ### Account/Position (5 endpoints)
 | Endpoint | Return Type |

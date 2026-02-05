@@ -4,24 +4,270 @@
 
 **Goal:** Extend `binance/client.py` with USDT-M and COIN-M futures methods that return typed schemas.
 
-**Prerequisites:** Tasks 1-7 complete (api/futures_um/, api/futures_cm/, _schemas/futures.py exist)
+**Prerequisites:** Tasks 1-8 complete (api/futures_um/, api/futures_cm/, _schemas/futures.py exist)
 
 ---
 
-## Task 8: Add Futures HTTPClient Support
+## Task 9: Fix HTTPClient Time Sync for Multiple APIs
+
+**Problem:** HTTPClient._sync_server_time() hardcodes `/api/v3/time` (Spot). Futures clients with `/fapi/` or `/dapi/` base URLs will fail because that endpoint doesn't exist.
+
+**Solution:** Add configurable `time_sync_path` parameter to HTTPClient.
 
 **Files:**
-- Modify: `binance/_core/http.py` (if needed)
-- Modify: `binance/client.py`
-- Modify: `tests/unit/test_client.py`
+- Modify: `binance/_core/http.py`
+- Create: `tests/unit/test_http_time_sync.py`
 
 **Step 1: Write the failing test**
 
 ```python
-# Add to tests/unit/test_client.py
+# tests/unit/test_http_time_sync.py
+"""Test HTTPClient time sync configuration."""
+import pytest
 
-def test_async_client_has_futures_http():
-    """Test that client has futures HTTP clients."""
+
+def test_http_client_default_time_sync_path():
+    """Test default time sync path is spot endpoint."""
+    from binance._core.http import HTTPClient
+
+    client = HTTPClient()
+    assert client._time_sync_path == "/api/v3/time"
+
+
+def test_http_client_custom_time_sync_path():
+    """Test custom time sync path for futures."""
+    from binance._core.http import HTTPClient
+
+    client = HTTPClient(time_sync_path="/fapi/v1/time")
+    assert client._time_sync_path == "/fapi/v1/time"
+
+
+def test_http_client_disable_time_sync():
+    """Test disabling time sync."""
+    from binance._core.http import HTTPClient
+
+    client = HTTPClient(time_sync_path=None)
+    assert client._time_sync_path is None
+
+
+def test_context_has_offset_initially_false():
+    """Test has_offset returns False before time sync."""
+    from binance._core.context import context
+
+    # Reset offset for test
+    context._server_time_offset = 0
+    assert context.has_offset() is False
+
+
+def test_context_has_offset_true_after_sync():
+    """Test has_offset returns True after offset is set."""
+    from binance._core.context import context
+
+    context._server_time_offset = 100  # Simulate time sync
+    assert context.has_offset() is True
+    context._server_time_offset = 0  # Reset
+```
+
+**Step 2: Run test to verify it fails**
+
+Run: `pytest tests/unit/test_http_time_sync.py -v`
+Expected: FAIL with "AttributeError: 'HTTPClient' object has no attribute '_time_sync_path'"
+
+**Step 3: Update HTTPClient**
+
+```python
+# Modify binance/_core/http.py
+
+class HTTPClient:
+    """Async HTTP client with connection pooling and auto-retry."""
+
+    __slots__ = (
+        "_api_key",
+        "_api_secret",
+        "_base_url",
+        "_session",
+        "_connector",
+        "_timeout",
+        "_time_sync_path",  # NEW
+    )
+
+    def __init__(
+        self,
+        api_key: str = "",
+        api_secret: str = "",
+        testnet: bool = False,
+        base_url: str | None = None,
+        timeout: float = TIMEOUT_DEFAULT,
+        time_sync_path: str | None = "/api/v3/time",  # NEW: configurable, None to disable
+    ) -> None:
+        """Initialize HTTP client.
+
+        Args:
+            api_key: Binance API key
+            api_secret: Binance API secret
+            testnet: Use testnet URLs if True
+            base_url: Override base URL
+            timeout: Request timeout in seconds
+            time_sync_path: Path for time sync endpoint. Use:
+                - "/api/v3/time" for Spot (default)
+                - "/fapi/v1/time" for USDT-M Futures
+                - "/dapi/v1/time" for COIN-M Futures
+                - None to disable time sync (share offset from another client)
+        """
+        self._api_key = api_key
+        self._api_secret = api_secret
+        self._base_url = base_url or BASE_URLS["spot_testnet" if testnet else "spot"]
+        self._session: aiohttp.ClientSession | None = None
+        self._connector: aiohttp.TCPConnector | None = None
+        self._timeout = aiohttp.ClientTimeout(total=timeout)
+        self._time_sync_path = time_sync_path  # NEW
+
+    async def connect(self) -> None:
+        """Initialize connection pool and sync server time."""
+        self._connector = aiohttp.TCPConnector(
+            limit=POOL_CONNECTIONS,
+            keepalive_timeout=POOL_KEEPALIVE,
+            ttl_dns_cache=DNS_CACHE_TTL,
+        )
+        self._session = aiohttp.ClientSession(
+            connector=self._connector,
+            timeout=self._timeout,
+            json_serialize=lambda x: orjson.dumps(x).decode(),
+        )
+        # Conditional time sync - skip if disabled or offset already set
+        if self._time_sync_path and not context.has_offset():
+            await self._sync_server_time()
+
+    async def _sync_server_time(self) -> None:
+        """Fetch server time and update offset."""
+        if self._time_sync_path is None:
+            return
+        data = await self.request("GET", self._time_sync_path, signed=False)
+        context.update_offset(data["serverTime"])
+```
+
+**Step 4: Update context.py to add has_offset()**
+
+```python
+# Add to binance/_core/context.py
+
+class _Context:
+    # ... existing code ...
+
+    def has_offset(self) -> bool:
+        """Check if time offset has been set."""
+        return self._server_time_offset != 0
+```
+
+**Step 5: Fix request_raw() to handle TimestampError**
+
+The existing `request_raw()` method doesn't handle `TimestampError` for auto-retry like `request()` does. For signed futures endpoints, timestamp errors would fail without retry.
+
+```python
+# Update request_raw() in binance/_core/http.py
+
+    async def request_raw(
+        self,
+        method: str,
+        path: str,
+        signed: bool = False,
+        params: dict[str, Any] | None = None,
+    ) -> bytes:
+        """Execute HTTP request and return raw bytes.
+
+        Used by generated code with pre-compiled decoders.
+        """
+        params = dict(params) if params else {}
+
+        if signed:
+            params = sign_request(params, self._api_secret)
+
+        headers = {}
+        if self._api_key:
+            headers["X-MBX-APIKEY"] = self._api_key
+
+        url = f"{self._base_url}{path}"
+
+        try:
+            return await self._do_request_raw(method, url, params, headers)
+        except TimestampError:
+            # Self-healing: sync time and retry once
+            await self._sync_server_time()
+            if signed:
+                # Re-sign with updated timestamp
+                params = {k: v for k, v in params.items() if k not in ("timestamp", "signature")}
+                params = sign_request(params, self._api_secret)
+            return await self._do_request_raw(method, url, params, headers)
+
+    async def _do_request_raw(
+        self,
+        method: str,
+        url: str,
+        params: dict[str, Any],
+        headers: dict[str, str],
+    ) -> bytes:
+        """Execute single HTTP request returning raw bytes."""
+        if self._session is None:
+            raise RuntimeError("HTTPClient not connected. Call connect() first.")
+
+        try:
+            async with self._session.request(
+                method,
+                url,
+                params=params if method == "GET" else None,
+                data=params if method != "GET" else None,
+                headers=headers,
+            ) as response:
+                raw = await response.read()
+
+                # Extract metadata and check errors
+                meta = APIErrorMeta(
+                    used_weight=_parse_int(response.headers.get("X-MBX-USED-WEIGHT-1M")),
+                    retry_after=_parse_int(response.headers.get("Retry-After")),
+                )
+
+                if response.status >= 400:
+                    data = orjson.loads(raw) if raw else {}
+                    raise_for_error(response.status, data, meta)
+
+                return raw
+
+        except aiohttp.ClientConnectorError as e:
+            raise ConnectionError(str(e), method=method, path=url) from e
+        except aiohttp.ServerTimeoutError as e:
+            raise TimeoutError(str(e), method=method, path=url) from e
+```
+
+**Step 6: Run tests**
+
+Run: `pytest tests/unit/test_http_time_sync.py -v`
+Expected: PASS
+
+**Step 7: Commit**
+
+```bash
+git add binance/_core/http.py binance/_core/context.py tests/unit/test_http_time_sync.py
+git commit -m "feat: add configurable time_sync_path to HTTPClient and fix request_raw retry"
+```
+
+---
+
+## Task 10: Add Futures HTTPClient Instances with Lazy Initialization
+
+**Files:**
+- Modify: `binance/client.py`
+- Create: `tests/unit/test_client_futures.py`
+
+**Step 1: Write the failing test**
+
+```python
+# tests/unit/test_client_futures.py
+"""Test AsyncClient futures HTTP client support."""
+import pytest
+
+
+def test_async_client_has_futures_properties():
+    """Test that client has futures HTTP client properties."""
     from binance.client import AsyncClient
 
     client = AsyncClient(testnet=True)
@@ -29,34 +275,41 @@ def test_async_client_has_futures_http():
     assert hasattr(client, "_http_futures_cm")
 
 
+def test_async_client_futures_lazy_init():
+    """Test futures clients are lazily initialized."""
+    from binance.client import AsyncClient
+
+    client = AsyncClient(testnet=True)
+    # Before accessing, internal storage should be None
+    assert client._AsyncClient__http_futures_um is None
+    assert client._AsyncClient__http_futures_cm is None
+
+
 def test_async_client_futures_testnet_urls():
     """Test futures clients use correct testnet URLs."""
     from binance.client import AsyncClient
-    from binance._core.config import FUTURES_UM_TESTNET_URL, FUTURES_CM_TESTNET_URL
+    from binance._core.config import BASE_URLS
 
     client = AsyncClient(testnet=True)
-    # The HTTP clients should be configured with testnet URLs
-    # (Implementation detail - may need to check _base_url attribute)
+    # Access to trigger lazy init
+    um_client = client._http_futures_um
+    cm_client = client._http_futures_cm
+
+    assert um_client._base_url == BASE_URLS["futures_um_testnet"]
+    assert cm_client._base_url == BASE_URLS["futures_cm_testnet"]
 ```
 
 **Step 2: Run test to verify it fails**
 
-Run: `pytest tests/unit/test_client.py::test_async_client_has_futures_http -v`
+Run: `pytest tests/unit/test_client_futures.py -v`
 Expected: FAIL
 
-**Step 3: Update AsyncClient to support multiple base URLs**
+**Step 3: Update AsyncClient with lazy-initialized futures clients**
 
 ```python
 # Modify binance/client.py
 
-from binance._core.config import (
-    BASE_URL,
-    TESTNET_URL,
-    FUTURES_UM_BASE_URL,
-    FUTURES_UM_TESTNET_URL,
-    FUTURES_CM_BASE_URL,
-    FUTURES_CM_TESTNET_URL,
-)
+from binance._core.config import BASE_URLS, get_base_url
 from binance._core.http import HTTPClient
 
 # Add futures schema imports
@@ -72,6 +325,7 @@ from binance._schemas.futures import (
     LeverageResult,
     FuturesTicker24h,
     FuturesMyTrade,
+    BatchOrderError,
 )
 
 
@@ -80,9 +334,20 @@ class AsyncClient:
 
     Supports Spot, USDT-M Futures, and COIN-M Futures APIs.
     All methods return typed msgspec schemas.
+
+    Futures clients are lazily initialized on first use to avoid
+    unnecessary connections when only using spot API.
     """
 
-    __slots__ = ("_http", "_http_futures_um", "_http_futures_cm")
+    __slots__ = (
+        "_http",
+        "__http_futures_um",
+        "__http_futures_cm",
+        "_api_key",
+        "_api_secret",
+        "_testnet",
+        "_timeout",
+    )
 
     def __init__(
         self,
@@ -101,57 +366,90 @@ class AsyncClient:
             base_url: Override spot base URL (ignores testnet if set)
             timeout: Request timeout in seconds
         """
-        # Spot API
-        spot_url = base_url or (TESTNET_URL if testnet else BASE_URL)
+        # Store for lazy init of futures clients
+        self._api_key = api_key
+        self._api_secret = api_secret
+        self._testnet = testnet
+        self._timeout = timeout
+
+        # Spot API - always initialized
+        spot_url = base_url or get_base_url("spot", testnet)
         self._http = HTTPClient(
             api_key=api_key,
             api_secret=api_secret,
             base_url=spot_url,
             timeout=timeout,
+            time_sync_path="/api/v3/time",  # Spot time sync
         )
 
-        # USDT-M Futures API
-        futures_um_url = FUTURES_UM_TESTNET_URL if testnet else FUTURES_UM_BASE_URL
-        self._http_futures_um = HTTPClient(
-            api_key=api_key,
-            api_secret=api_secret,
-            base_url=futures_um_url,
-            timeout=timeout,
-        )
+        # Futures clients - lazy initialized
+        self.__http_futures_um: HTTPClient | None = None
+        self.__http_futures_cm: HTTPClient | None = None
 
-        # COIN-M Futures API
-        futures_cm_url = FUTURES_CM_TESTNET_URL if testnet else FUTURES_CM_BASE_URL
-        self._http_futures_cm = HTTPClient(
-            api_key=api_key,
-            api_secret=api_secret,
-            base_url=futures_cm_url,
-            timeout=timeout,
-        )
+    @property
+    def _http_futures_um(self) -> HTTPClient:
+        """Get USDT-M futures HTTP client (lazy initialized)."""
+        if self.__http_futures_um is None:
+            self.__http_futures_um = HTTPClient(
+                api_key=self._api_key,
+                api_secret=self._api_secret,
+                base_url=get_base_url("futures_um", self._testnet),
+                timeout=self._timeout,
+                time_sync_path=None,  # Share offset from spot client
+            )
+        return self.__http_futures_um
+
+    @property
+    def _http_futures_cm(self) -> HTTPClient:
+        """Get COIN-M futures HTTP client (lazy initialized)."""
+        if self.__http_futures_cm is None:
+            self.__http_futures_cm = HTTPClient(
+                api_key=self._api_key,
+                api_secret=self._api_secret,
+                base_url=get_base_url("futures_cm", self._testnet),
+                timeout=self._timeout,
+                time_sync_path=None,  # Share offset from spot client
+            )
+        return self.__http_futures_cm
 
     async def __aenter__(self) -> "AsyncClient":
         """Async context manager entry."""
         await self._http.connect()
-        await self._http_futures_um.connect()
-        await self._http_futures_cm.connect()
+        # Futures clients connect on first use (lazy)
         return self
 
     async def __aexit__(self, *args: Any) -> None:
         """Async context manager exit."""
-        await self._http.close()
-        await self._http_futures_um.close()
-        await self._http_futures_cm.close()
+        await self.close()
 
     async def connect(self) -> None:
-        """Initialize all connection pools."""
+        """Initialize spot connection pool.
+
+        Futures clients connect lazily on first use.
+        """
         await self._http.connect()
-        await self._http_futures_um.connect()
-        await self._http_futures_cm.connect()
 
     async def close(self) -> None:
         """Close all connection pools."""
         await self._http.close()
-        await self._http_futures_um.close()
-        await self._http_futures_cm.close()
+        if self.__http_futures_um is not None:
+            await self.__http_futures_um.close()
+        if self.__http_futures_cm is not None:
+            await self.__http_futures_cm.close()
+
+    async def _ensure_futures_um_connected(self) -> HTTPClient:
+        """Ensure USDT-M futures client is connected."""
+        client = self._http_futures_um
+        if client._session is None:
+            await client.connect()
+        return client
+
+    async def _ensure_futures_cm_connected(self) -> HTTPClient:
+        """Ensure COIN-M futures client is connected."""
+        client = self._http_futures_cm
+        if client._session is None:
+            await client.connect()
+        return client
 ```
 
 **Step 4: Run test to verify it passes**
@@ -168,7 +466,7 @@ git commit -m "feat: add futures HTTP client support to AsyncClient"
 
 ---
 
-## Task 9: Bind USDT-M Futures General and Market Endpoints
+## Task 11: Bind USDT-M Futures General and Market Endpoints
 
 **Files:**
 - Modify: `binance/client.py`
@@ -204,6 +502,8 @@ def test_async_client_has_futures_um_market_methods():
 
 **Step 2: Add USDT-M general and market methods**
 
+**Important:** All futures methods MUST use `await self._ensure_futures_um_connected()` to get a connected HTTP client. This enables lazy connection on first use.
+
 ```python
 # Add to binance/client.py
 
@@ -223,7 +523,8 @@ class AsyncClient:
         Returns:
             Empty dict on success
         """
-        return await futures_um.general.ping(self._http_futures_um)
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.general.ping(http)
 
     async def futures_get_server_time(self) -> ServerTime:
         """Get USDT-M Futures server time.
@@ -233,7 +534,8 @@ class AsyncClient:
         Returns:
             ServerTime with server_time in milliseconds
         """
-        return await futures_um.general.get_server_time(self._http_futures_um)
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.general.get_server_time(http)
 
     async def futures_get_exchange_info(self) -> FuturesExchangeInfo:
         """Get USDT-M Futures exchange trading rules.
@@ -243,7 +545,8 @@ class AsyncClient:
         Returns:
             FuturesExchangeInfo with symbols and rate limits
         """
-        return await futures_um.general.get_exchange_info(self._http_futures_um)
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.general.get_exchange_info(http)
 
     # ============ USDT-M Futures Market Data Endpoints ============
 
@@ -263,9 +566,8 @@ class AsyncClient:
         Returns:
             OrderBook with bids and asks
         """
-        return await futures_um.market.get_order_book(
-            self._http_futures_um, symbol=symbol, limit=limit
-        )
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.market.get_order_book(http, symbol=symbol, limit=limit)
 
     async def futures_get_trades(
         self,
@@ -279,9 +581,8 @@ class AsyncClient:
         Returns:
             List of Trade objects
         """
-        return await futures_um.market.get_trades(
-            self._http_futures_um, symbol=symbol, limit=limit
-        )
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.market.get_trades(http, symbol=symbol, limit=limit)
 
     async def futures_get_agg_trades(
         self,
@@ -298,8 +599,9 @@ class AsyncClient:
         Returns:
             List of AggTrade objects
         """
+        http = await self._ensure_futures_um_connected()
         return await futures_um.market.get_agg_trades(
-            self._http_futures_um,
+            http,
             symbol=symbol,
             from_id=from_id,
             start_time=start_time,
@@ -329,8 +631,9 @@ class AsyncClient:
         Returns:
             List of FuturesKline objects with typed fields
         """
+        http = await self._ensure_futures_um_connected()
         return await futures_um.market.get_klines(
-            self._http_futures_um,
+            http,
             symbol=symbol,
             interval=interval,
             start_time=start_time,
@@ -359,8 +662,9 @@ class AsyncClient:
         Returns:
             List of FuturesKline objects
         """
+        http = await self._ensure_futures_um_connected()
         return await futures_um.market.get_continuous_klines(
-            self._http_futures_um,
+            http,
             pair=pair,
             contract_type=contract_type,
             interval=interval,
@@ -388,9 +692,8 @@ class AsyncClient:
         Returns:
             MarkPrice if symbol specified, else list[MarkPrice]
         """
-        return await futures_um.market.get_mark_price(
-            self._http_futures_um, symbol=symbol
-        )
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.market.get_mark_price(http, symbol=symbol)
 
     async def futures_get_funding_rate(
         self,
@@ -406,8 +709,9 @@ class AsyncClient:
         Returns:
             List of FundingRate objects
         """
+        http = await self._ensure_futures_um_connected()
         return await futures_um.market.get_funding_rate(
-            self._http_futures_um,
+            http,
             symbol=symbol,
             start_time=start_time,
             end_time=end_time,
@@ -430,9 +734,8 @@ class AsyncClient:
         Returns:
             FuturesTicker24h if symbol specified, else list
         """
-        return await futures_um.market.get_ticker_24h(
-            self._http_futures_um, symbol=symbol
-        )
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.market.get_ticker_24h(http, symbol=symbol)
 
     @overload
     async def futures_get_ticker_price(self, symbol: str) -> TickerPrice: ...
@@ -450,9 +753,8 @@ class AsyncClient:
         Returns:
             TickerPrice if symbol specified, else list
         """
-        return await futures_um.market.get_ticker_price(
-            self._http_futures_um, symbol=symbol
-        )
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.market.get_ticker_price(http, symbol=symbol)
 
     @overload
     async def futures_get_book_ticker(self, symbol: str) -> BookTicker: ...
@@ -470,9 +772,8 @@ class AsyncClient:
         Returns:
             BookTicker if symbol specified, else list
         """
-        return await futures_um.market.get_book_ticker(
-            self._http_futures_um, symbol=symbol
-        )
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.market.get_book_ticker(http, symbol=symbol)
 ```
 
 **Step 3: Run tests**
@@ -489,7 +790,7 @@ git commit -m "feat: bind USDT-M futures general and market endpoints"
 
 ---
 
-## Task 10: Bind USDT-M Futures Trade and Account Endpoints
+## Task 12: Bind USDT-M Futures Trade and Account Endpoints
 
 **Files:**
 - Modify: `binance/client.py`
@@ -511,6 +812,7 @@ def test_async_client_has_futures_um_trade_methods():
     assert hasattr(client, "futures_cancel_order")
     assert hasattr(client, "futures_cancel_all_open_orders")
     assert hasattr(client, "futures_get_open_orders")
+    assert hasattr(client, "futures_create_batch_orders")
 
 
 def test_async_client_has_futures_um_account_methods():
@@ -584,8 +886,9 @@ class AsyncClient:
         Tip:
             Always provide `new_client_order_id` for idempotent order placement.
         """
+        http = await self._ensure_futures_um_connected()
         return await futures_um.trade.create_order(
-            self._http_futures_um,
+            http,
             symbol=symbol,
             side=side,
             type=type,
@@ -621,8 +924,9 @@ class AsyncClient:
         Returns:
             Empty dict on success
         """
+        http = await self._ensure_futures_um_connected()
         return await futures_um.trade.create_test_order(
-            self._http_futures_um,
+            http,
             symbol=symbol,
             side=side,
             type=type,
@@ -645,8 +949,9 @@ class AsyncClient:
         Returns:
             FuturesOrder with current status
         """
+        http = await self._ensure_futures_um_connected()
         return await futures_um.trade.get_order(
-            self._http_futures_um,
+            http,
             symbol=symbol,
             order_id=order_id,
             orig_client_order_id=orig_client_order_id,
@@ -666,8 +971,9 @@ class AsyncClient:
         Returns:
             FuturesOrder with canceled status
         """
+        http = await self._ensure_futures_um_connected()
         return await futures_um.trade.cancel_order(
-            self._http_futures_um,
+            http,
             symbol=symbol,
             order_id=order_id,
             orig_client_order_id=orig_client_order_id,
@@ -685,9 +991,8 @@ class AsyncClient:
         Returns:
             Success response
         """
-        return await futures_um.trade.cancel_all_open_orders(
-            self._http_futures_um, symbol=symbol
-        )
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.trade.cancel_all_open_orders(http, symbol=symbol)
 
     async def futures_get_open_orders(
         self,
@@ -701,9 +1006,8 @@ class AsyncClient:
         Returns:
             List of open FuturesOrder objects
         """
-        return await futures_um.trade.get_open_orders(
-            self._http_futures_um, symbol=symbol
-        )
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.trade.get_open_orders(http, symbol=symbol)
 
     async def futures_get_all_orders(
         self,
@@ -721,14 +1025,55 @@ class AsyncClient:
         Returns:
             List of FuturesOrder objects
         """
+        http = await self._ensure_futures_um_connected()
         return await futures_um.trade.get_all_orders(
-            self._http_futures_um,
+            http,
             symbol=symbol,
             order_id=order_id,
             start_time=start_time,
             end_time=end_time,
             limit=limit,
         )
+
+    async def futures_create_batch_orders(
+        self,
+        orders: list[dict[str, Any]],
+    ) -> list[FuturesOrder | BatchOrderError]:
+        """Place multiple USDT-M futures orders in a single request.
+
+        Weight: 5
+        Requires: Signature
+
+        Note: Each order in the response can be either a FuturesOrder (success)
+        or a BatchOrderError (failure). Check for 'code' attribute to detect errors.
+
+        Args:
+            orders: List of order dicts (max 5). Each dict should contain:
+                - symbol: Trading pair (required)
+                - side: BUY or SELL (required)
+                - type: Order type (required)
+                - quantity: Order quantity (required for most types)
+                - price: Limit price (required for LIMIT orders)
+                - positionSide: LONG, SHORT, or BOTH (optional)
+                - timeInForce: GTC, IOC, FOK (optional)
+
+        Returns:
+            List of FuturesOrder or BatchOrderError for each order
+
+        Example:
+            orders = [
+                {"symbol": "BTCUSDT", "side": "BUY", "type": "LIMIT",
+                 "quantity": "0.001", "price": "30000", "timeInForce": "GTC"},
+            ]
+            results = await client.futures_create_batch_orders(orders)
+            for result in results:
+                if hasattr(result, 'code'):  # BatchOrderError
+                    print(f"Failed: {result.msg}")
+                else:
+                    print(f"Order {result.order_id} placed")
+        """
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.trade.create_batch_orders(http, orders=orders)
 
     # ============ USDT-M Futures Account Endpoints (Signed) ============
 
@@ -741,7 +1086,8 @@ class AsyncClient:
         Returns:
             FuturesAccount with balances and positions
         """
-        return await futures_um.account.get_account(self._http_futures_um)
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.account.get_account(http)
 
     async def futures_get_balance(self) -> list[FuturesBalance]:
         """Get USDT-M futures account balance.
@@ -752,7 +1098,8 @@ class AsyncClient:
         Returns:
             List of FuturesBalance objects
         """
-        return await futures_um.account.get_balance(self._http_futures_um)
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.account.get_balance(http)
 
     async def futures_get_position_risk(
         self,
@@ -769,9 +1116,8 @@ class AsyncClient:
         Returns:
             List of PositionRisk objects
         """
-        return await futures_um.account.get_position_risk(
-            self._http_futures_um, symbol=symbol
-        )
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.account.get_position_risk(http, symbol=symbol)
 
     async def futures_set_leverage(
         self,
@@ -790,9 +1136,8 @@ class AsyncClient:
         Returns:
             LeverageResult with new leverage and max notional
         """
-        return await futures_um.account.set_leverage(
-            self._http_futures_um, symbol=symbol, leverage=leverage
-        )
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.account.set_leverage(http, symbol=symbol, leverage=leverage)
 
     async def futures_set_margin_type(
         self,
@@ -811,9 +1156,8 @@ class AsyncClient:
         Returns:
             Success response
         """
-        return await futures_um.account.set_margin_type(
-            self._http_futures_um, symbol=symbol, margin_type=margin_type
-        )
+        http = await self._ensure_futures_um_connected()
+        return await futures_um.account.set_margin_type(http, symbol=symbol, margin_type=margin_type)
 
     async def futures_get_my_trades(
         self,
@@ -832,8 +1176,9 @@ class AsyncClient:
         Returns:
             List of FuturesMyTrade objects
         """
+        http = await self._ensure_futures_um_connected()
         return await futures_um.account.get_my_trades(
-            self._http_futures_um,
+            http,
             symbol=symbol,
             order_id=order_id,
             start_time=start_time,
@@ -857,16 +1202,16 @@ git commit -m "feat: bind USDT-M futures trade and account endpoints"
 
 ---
 
-## Task 11: Add COIN-M Futures Methods (Similar to USDT-M)
+## Task 13: Add COIN-M Futures Methods (Complete)
 
 **Files:**
 - Modify: `binance/client.py`
-- Modify: `tests/unit/test_client.py`
+- Modify: `tests/unit/test_client_futures.py`
 
 **Step 1: Write tests for COIN-M futures methods**
 
 ```python
-# Add to tests/unit/test_client.py
+# Add to tests/unit/test_client_futures.py
 
 def test_async_client_has_futures_cm_methods():
     """Test that client has COIN-M futures methods."""
@@ -879,21 +1224,27 @@ def test_async_client_has_futures_cm_methods():
     assert hasattr(client, "futures_coin_get_exchange_info")
     # Market
     assert hasattr(client, "futures_coin_get_klines")
+    assert hasattr(client, "futures_coin_get_order_book")
     assert hasattr(client, "futures_coin_get_mark_price")
+    assert hasattr(client, "futures_coin_get_funding_rate")
+    assert hasattr(client, "futures_coin_get_ticker_24h")
+    assert hasattr(client, "futures_coin_get_ticker_price")
     # Trade
     assert hasattr(client, "futures_coin_create_order")
     assert hasattr(client, "futures_coin_cancel_order")
+    assert hasattr(client, "futures_coin_get_order")
+    assert hasattr(client, "futures_coin_get_open_orders")
+    assert hasattr(client, "futures_coin_create_batch_orders")
     # Account
     assert hasattr(client, "futures_coin_get_account")
+    assert hasattr(client, "futures_coin_get_balance")
     assert hasattr(client, "futures_coin_get_position_risk")
+    assert hasattr(client, "futures_coin_set_leverage")
 ```
 
-**Step 2: Add COIN-M methods (prefix: futures_coin_)**
+**Step 2: Add COIN-M methods (complete implementation)**
 
-Add COIN-M methods following the same pattern as USDT-M, but using:
-- `self._http_futures_cm` instead of `self._http_futures_um`
-- `futures_cm` module instead of `futures_um`
-- Method prefix `futures_coin_` instead of `futures_`
+All COIN-M methods use `await self._ensure_futures_cm_connected()` for lazy connection.
 
 ```python
 # Add to binance/client.py
@@ -904,18 +1255,48 @@ class AsyncClient:
     # ============ COIN-M Futures General Endpoints ============
 
     async def futures_coin_ping(self) -> dict[str, Any]:
-        """Test connectivity to COIN-M Futures API."""
-        return await futures_cm.general.ping(self._http_futures_cm)
+        """Test connectivity to COIN-M Futures API.
+
+        Weight: 1
+        """
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.general.ping(http)
 
     async def futures_coin_get_server_time(self) -> ServerTime:
-        """Get COIN-M Futures server time."""
-        return await futures_cm.general.get_server_time(self._http_futures_cm)
+        """Get COIN-M Futures server time.
+
+        Weight: 1
+        """
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.general.get_server_time(http)
 
     async def futures_coin_get_exchange_info(self) -> FuturesExchangeInfo:
-        """Get COIN-M Futures exchange trading rules."""
-        return await futures_cm.general.get_exchange_info(self._http_futures_cm)
+        """Get COIN-M Futures exchange trading rules.
+
+        Weight: 1
+        """
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.general.get_exchange_info(http)
 
     # ============ COIN-M Futures Market Data Endpoints ============
+
+    async def futures_coin_get_order_book(
+        self,
+        symbol: str,
+        limit: int = 500,
+    ) -> OrderBook:
+        """Get COIN-M futures order book depth."""
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.market.get_order_book(http, symbol=symbol, limit=limit)
+
+    async def futures_coin_get_trades(
+        self,
+        symbol: str,
+        limit: int = 500,
+    ) -> list[Trade]:
+        """Get COIN-M futures recent trades."""
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.market.get_trades(http, symbol=symbol, limit=limit)
 
     async def futures_coin_get_klines(
         self,
@@ -926,8 +1307,9 @@ class AsyncClient:
         limit: int = 500,
     ) -> list[FuturesKline]:
         """Get COIN-M futures kline/candlestick bars."""
+        http = await self._ensure_futures_cm_connected()
         return await futures_cm.market.get_klines(
-            self._http_futures_cm,
+            http,
             symbol=symbol,
             interval=interval,
             start_time=start_time,
@@ -935,9 +1317,63 @@ class AsyncClient:
             limit=limit,
         )
 
-    # ... Add remaining COIN-M methods following the USDT-M pattern ...
+    @overload
+    async def futures_coin_get_mark_price(self, symbol: str) -> MarkPrice: ...
+    @overload
+    async def futures_coin_get_mark_price(self, symbol: None = None) -> list[MarkPrice]: ...
 
-    # ============ COIN-M Futures Trade Endpoints ============
+    async def futures_coin_get_mark_price(
+        self,
+        symbol: str | None = None,
+    ) -> MarkPrice | list[MarkPrice]:
+        """Get COIN-M futures mark price and funding rate."""
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.market.get_mark_price(http, symbol=symbol)
+
+    async def futures_coin_get_funding_rate(
+        self,
+        symbol: str,
+        start_time: int | None = None,
+        end_time: int | None = None,
+        limit: int = 100,
+    ) -> list[FundingRate]:
+        """Get COIN-M futures funding rate history."""
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.market.get_funding_rate(
+            http,
+            symbol=symbol,
+            start_time=start_time,
+            end_time=end_time,
+            limit=limit,
+        )
+
+    @overload
+    async def futures_coin_get_ticker_24h(self, symbol: str) -> FuturesTicker24h: ...
+    @overload
+    async def futures_coin_get_ticker_24h(self, symbol: None = None) -> list[FuturesTicker24h]: ...
+
+    async def futures_coin_get_ticker_24h(
+        self,
+        symbol: str | None = None,
+    ) -> FuturesTicker24h | list[FuturesTicker24h]:
+        """Get COIN-M futures 24hr ticker."""
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.market.get_ticker_24h(http, symbol=symbol)
+
+    @overload
+    async def futures_coin_get_ticker_price(self, symbol: str) -> TickerPrice: ...
+    @overload
+    async def futures_coin_get_ticker_price(self, symbol: None = None) -> list[TickerPrice]: ...
+
+    async def futures_coin_get_ticker_price(
+        self,
+        symbol: str | None = None,
+    ) -> TickerPrice | list[TickerPrice]:
+        """Get COIN-M futures symbol price ticker."""
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.market.get_ticker_price(http, symbol=symbol)
+
+    # ============ COIN-M Futures Trade Endpoints (Signed) ============
 
     async def futures_coin_create_order(
         self,
@@ -946,31 +1382,142 @@ class AsyncClient:
         type: str,
         quantity: str | None = None,
         price: str | None = None,
-        # ... same parameters as USDT-M
+        time_in_force: str | None = None,
+        reduce_only: bool | None = None,
+        new_client_order_id: str | None = None,
+        stop_price: str | None = None,
+        position_side: str | None = None,
+        close_position: bool | None = None,
+        working_type: str | None = None,
+        price_protect: bool | None = None,
+        new_order_resp_type: str | None = None,
     ) -> FuturesOrder:
-        """Create a new COIN-M futures order."""
+        """Create a new COIN-M futures order.
+
+        Weight: 1
+        Requires: Signature
+        """
+        http = await self._ensure_futures_cm_connected()
         return await futures_cm.trade.create_order(
-            self._http_futures_cm,
+            http,
             symbol=symbol,
             side=side,
             type=type,
-            # ...
+            quantity=quantity,
+            price=price,
+            time_in_force=time_in_force,
+            reduce_only=reduce_only,
+            new_client_order_id=new_client_order_id,
+            stop_price=stop_price,
+            position_side=position_side,
+            close_position=close_position,
+            working_type=working_type,
+            price_protect=price_protect,
+            new_order_resp_type=new_order_resp_type,
         )
 
-    # ============ COIN-M Futures Account Endpoints ============
+    async def futures_coin_get_order(
+        self,
+        symbol: str,
+        order_id: int | None = None,
+        orig_client_order_id: str | None = None,
+    ) -> FuturesOrder:
+        """Query COIN-M futures order status."""
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.trade.get_order(
+            http,
+            symbol=symbol,
+            order_id=order_id,
+            orig_client_order_id=orig_client_order_id,
+        )
+
+    async def futures_coin_cancel_order(
+        self,
+        symbol: str,
+        order_id: int | None = None,
+        orig_client_order_id: str | None = None,
+    ) -> FuturesOrder:
+        """Cancel an active COIN-M futures order."""
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.trade.cancel_order(
+            http,
+            symbol=symbol,
+            order_id=order_id,
+            orig_client_order_id=orig_client_order_id,
+        )
+
+    async def futures_coin_cancel_all_open_orders(
+        self,
+        symbol: str,
+    ) -> dict[str, Any]:
+        """Cancel all open COIN-M futures orders on a symbol."""
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.trade.cancel_all_open_orders(http, symbol=symbol)
+
+    async def futures_coin_get_open_orders(
+        self,
+        symbol: str | None = None,
+    ) -> list[FuturesOrder]:
+        """Get all open COIN-M futures orders."""
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.trade.get_open_orders(http, symbol=symbol)
+
+    async def futures_coin_get_all_orders(
+        self,
+        symbol: str,
+        order_id: int | None = None,
+        start_time: int | None = None,
+        end_time: int | None = None,
+        limit: int = 500,
+    ) -> list[FuturesOrder]:
+        """Get all COIN-M futures orders (active, canceled, filled)."""
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.trade.get_all_orders(
+            http,
+            symbol=symbol,
+            order_id=order_id,
+            start_time=start_time,
+            end_time=end_time,
+            limit=limit,
+        )
+
+    async def futures_coin_create_batch_orders(
+        self,
+        orders: list[dict[str, Any]],
+    ) -> list[FuturesOrder | BatchOrderError]:
+        """Place multiple COIN-M futures orders in a single request.
+
+        Weight: 5
+        Requires: Signature
+
+        Args:
+            orders: List of order dicts (max 5)
+
+        Returns:
+            List of FuturesOrder or BatchOrderError for each order
+        """
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.trade.create_batch_orders(http, orders=orders)
+
+    # ============ COIN-M Futures Account Endpoints (Signed) ============
 
     async def futures_coin_get_account(self) -> FuturesAccount:
         """Get COIN-M futures account information."""
-        return await futures_cm.account.get_account(self._http_futures_cm)
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.account.get_account(http)
+
+    async def futures_coin_get_balance(self) -> list[FuturesBalance]:
+        """Get COIN-M futures account balance."""
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.account.get_balance(http)
 
     async def futures_coin_get_position_risk(
         self,
         symbol: str | None = None,
     ) -> list[PositionRisk]:
         """Get COIN-M futures position information."""
-        return await futures_cm.account.get_position_risk(
-            self._http_futures_cm, symbol=symbol
-        )
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.account.get_position_risk(http, symbol=symbol)
 
     async def futures_coin_set_leverage(
         self,
@@ -978,14 +1525,43 @@ class AsyncClient:
         leverage: int,
     ) -> LeverageResult:
         """Change COIN-M futures leverage."""
-        return await futures_cm.account.set_leverage(
-            self._http_futures_cm, symbol=symbol, leverage=leverage
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.account.set_leverage(http, symbol=symbol, leverage=leverage)
+
+    async def futures_coin_set_margin_type(
+        self,
+        symbol: str,
+        margin_type: str,
+    ) -> dict[str, Any]:
+        """Change COIN-M futures margin type."""
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.account.set_margin_type(http, symbol=symbol, margin_type=margin_type)
+
+    async def futures_coin_get_my_trades(
+        self,
+        symbol: str,
+        order_id: int | None = None,
+        start_time: int | None = None,
+        end_time: int | None = None,
+        from_id: int | None = None,
+        limit: int = 500,
+    ) -> list[FuturesMyTrade]:
+        """Get COIN-M futures trades for account."""
+        http = await self._ensure_futures_cm_connected()
+        return await futures_cm.account.get_my_trades(
+            http,
+            symbol=symbol,
+            order_id=order_id,
+            start_time=start_time,
+            end_time=end_time,
+            from_id=from_id,
+            limit=limit,
         )
 ```
 
 **Step 3: Run tests**
 
-Run: `pytest tests/unit/test_client.py -v`
+Run: `pytest tests/unit/test_client_futures.py -v`
 Expected: PASS
 
 **Step 4: Run mypy**
@@ -996,13 +1572,13 @@ Expected: Success (or known msgspec-related warnings)
 **Step 5: Commit**
 
 ```bash
-git add binance/client.py tests/unit/test_client.py
+git add binance/client.py tests/unit/test_client_futures.py
 git commit -m "feat: add COIN-M futures methods to AsyncClient"
 ```
 
 ---
 
-## Task 11.1: Add Mock-Based Unit Tests for Futures Methods
+## Task 14: Add Mock-Based Unit Tests for Futures Methods
 
 **Files:**
 - Create: `tests/unit/test_futures_client_mocked.py`
