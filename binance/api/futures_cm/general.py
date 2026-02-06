@@ -4,8 +4,8 @@ from typing import Any
 import msgspec
 
 from binance._core.http import HTTPClient
-from binance._schemas.spot import ServerTime  # Reuse ServerTime schema
 from binance._schemas.futures import FuturesExchangeInfo
+from binance._schemas.spot import ServerTime  # Reuse ServerTime schema
 
 # Pre-compiled decoders
 _server_time_decoder = msgspec.json.Decoder(ServerTime)

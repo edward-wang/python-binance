@@ -1,8 +1,8 @@
-import logging
-from operator import itemgetter
 import asyncio
+import logging
 import time
-from typing import Optional, Dict, Callable
+from operator import itemgetter
+from typing import Callable, Dict, Optional
 
 from ..helpers import get_loop
 from .streams import BinanceSocketManager

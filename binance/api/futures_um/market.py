@@ -4,13 +4,13 @@ from typing import Any
 import msgspec
 
 from binance._core.http import HTTPClient
-from binance._schemas.spot import OrderBook, Trade, AggTrade, TickerPrice, BookTicker
 from binance._schemas.futures import (
-    FuturesKline,
-    MarkPrice,
     FundingRate,
+    FuturesKline,
     FuturesTicker24h,
+    MarkPrice,
 )
+from binance._schemas.spot import AggTrade, BookTicker, OrderBook, TickerPrice, Trade
 
 # Pre-compiled decoders
 _order_book_decoder = msgspec.json.Decoder(OrderBook)

@@ -4,7 +4,7 @@ from typing import Any
 import msgspec
 
 from binance._core.http import HTTPClient
-from binance._schemas.futures import FuturesOrder, BatchOrderError
+from binance._schemas.futures import BatchOrderError, FuturesOrder
 
 # Pre-compiled decoders
 _order_decoder = msgspec.json.Decoder(FuturesOrder)

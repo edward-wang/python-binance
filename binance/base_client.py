@@ -1,18 +1,18 @@
-from base64 import b64encode
-from pathlib import Path
-import random
-from typing import Dict, Optional, List, Tuple, Union, Any
-
 import asyncio
 import hashlib
 import hmac
+import random
 import time
-from Crypto.PublicKey import RSA, ECC
-from Crypto.Hash import SHA256
-from Crypto.Signature import pkcs1_15, eddsa
 import urllib.parse as _urlencode
+from base64 import b64encode
 from operator import itemgetter
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.parse import urlencode
+
+from Crypto.Hash import SHA256
+from Crypto.PublicKey import ECC, RSA
+from Crypto.Signature import eddsa, pkcs1_15
 
 from binance.ws.websocket_api import WebsocketAPI
 
@@ -150,7 +150,7 @@ class BaseClient:
     MINING_TO_USDT_FUTURE = "MINING_UMFUTURE"
     MINING_TO_FIAT = "MINING_C2C"
 
-    ## order ids
+    # order ids
     SPOT_ORDER_PREFIX = "x-HNA2TXFJ"
     CONTRACT_ORDER_PREFIX = "x-Cb7ytekJ"
 
@@ -220,7 +220,7 @@ class BaseClient:
         https_proxy = None
         if requests_params and 'proxies' in requests_params:
             https_proxy = requests_params['proxies'].get('https') or requests_params['proxies'].get('http')
-        
+
         self.ws_api = WebsocketAPI(url=ws_api_url, tld=tld, https_proxy=https_proxy)
         ws_future_url = self.WS_FUTURES_URL.format(tld)
         if testnet:

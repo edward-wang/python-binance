@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import threading
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
 from binance.async_client import AsyncClient
 from binance.helpers import get_loop

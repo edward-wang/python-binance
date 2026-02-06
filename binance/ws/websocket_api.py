@@ -1,11 +1,12 @@
-from typing import Dict, Optional
 import asyncio
+from typing import Dict, Optional
 
 from websockets import WebSocketClientProtocol  # type: ignore
 
+from binance.exceptions import BinanceAPIException, BinanceWebsocketUnableToConnect
+
 from .constants import WSListenerState
 from .reconnecting_websocket import ReconnectingWebsocket
-from binance.exceptions import BinanceAPIException, BinanceWebsocketUnableToConnect
 
 
 class WebsocketAPI(ReconnectingWebsocket):

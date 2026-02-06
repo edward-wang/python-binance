@@ -29,6 +29,20 @@ from typing import Any, overload
 
 from binance._core.config import get_base_url
 from binance._core.http import HTTPClient
+from binance._schemas.futures import (
+    BatchOrderError,
+    FundingRate,
+    FuturesAccount,
+    FuturesBalance,
+    FuturesExchangeInfo,
+    FuturesKline,
+    FuturesMyTrade,
+    FuturesOrder,
+    FuturesTicker24h,
+    LeverageResult,
+    MarkPrice,
+    PositionRisk,
+)
 from binance._schemas.spot import (
     Account,
     AggTrade,
@@ -46,22 +60,8 @@ from binance._schemas.spot import (
     TickerPrice,
     Trade,
 )
-from binance._schemas.futures import (
-    FuturesExchangeInfo,
-    FuturesKline,
-    FuturesOrder,
-    FuturesAccount,
-    FuturesBalance,
-    PositionRisk,
-    MarkPrice,
-    FundingRate,
-    LeverageResult,
-    FuturesTicker24h,
-    FuturesMyTrade,
-    BatchOrderError,
-)
+from binance.api import futures_cm, futures_um
 from binance.api.spot import account, general, market, trade
-from binance.api import futures_um, futures_cm
 
 
 class AsyncClient:

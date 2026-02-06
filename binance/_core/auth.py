@@ -6,8 +6,8 @@ All signed requests require:
 - timestamp: Server-calibrated timestamp in milliseconds
 - signature: HMAC-SHA256 of query string using API secret
 """
-import hmac
 import hashlib
+import hmac
 from typing import Any
 from urllib.parse import urlencode
 

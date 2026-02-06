@@ -2,10 +2,10 @@ import asyncio
 import gzip
 import json
 import logging
-from socket import gaierror
-from typing import Optional
 from asyncio import sleep
 from random import random
+from socket import gaierror
+from typing import Optional
 
 # load orjson if available, otherwise default to json
 orjson = None
@@ -23,7 +23,8 @@ except ImportError:
 Proxy = None
 proxy_connect = None
 try:
-    from websockets_proxy import Proxy as w_Proxy, proxy_connect as w_proxy_connect
+    from websockets_proxy import Proxy as w_Proxy
+    from websockets_proxy import proxy_connect as w_proxy_connect
 
     Proxy = w_Proxy
     proxy_connect = w_proxy_connect
@@ -34,8 +35,8 @@ import websockets as ws
 
 from binance.exceptions import (
     BinanceWebsocketClosed,
-    BinanceWebsocketUnableToConnect,
     BinanceWebsocketQueueOverflow,
+    BinanceWebsocketUnableToConnect,
     ReadLoopClosed,
 )
 from binance.helpers import get_loop
@@ -265,7 +266,7 @@ class ReconnectingWebsocket:
             await asyncio.sleep(reconnect_wait)
             try:
                 await self.connect()
-            except Exception as e:
+            except Exception:
                 pass
         else:
             self._log.error(f"Max reconnections {self.MAX_RECONNECTS} reached:")

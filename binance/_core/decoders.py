@@ -13,8 +13,9 @@ Usage:
     # Use in hot path
     klines = decoder.decode(raw_bytes)
 """
-import msgspec
 from typing import Any, TypeVar
+
+import msgspec
 
 T = TypeVar("T")
 

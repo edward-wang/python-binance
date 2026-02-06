@@ -9,6 +9,6 @@ Modules:
 All methods return msgspec schema types for type safety.
 Base URL: https://dapi.binance.com (production) / https://testnet.binancefuture.com (testnet)
 """
-from binance.api.futures_cm import general, market, trade, account
+from binance.api.futures_cm import account, general, market, trade
 
 __all__ = ["general", "market", "trade", "account"]

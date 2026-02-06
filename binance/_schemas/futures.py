@@ -9,7 +9,6 @@ import msgspec
 
 from binance._schemas.common import BaseStruct
 
-
 # ============ Exchange Info ============
 
 

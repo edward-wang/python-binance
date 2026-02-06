@@ -7,9 +7,9 @@ from binance._core.http import HTTPClient
 from binance._schemas.futures import (
     FuturesAccount,
     FuturesBalance,
-    PositionRisk,
-    LeverageResult,
     FuturesMyTrade,
+    LeverageResult,
+    PositionRisk,
 )
 
 # Pre-compiled decoders

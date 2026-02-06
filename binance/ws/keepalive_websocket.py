@@ -1,8 +1,9 @@
 import asyncio
 import uuid
+
 from binance.async_client import AsyncClient
-from binance.ws.reconnecting_websocket import ReconnectingWebsocket
 from binance.ws.constants import KEEPALIVE_TIMEOUT
+from binance.ws.reconnecting_websocket import ReconnectingWebsocket
 
 
 class KeepAliveWebsocket(ReconnectingWebsocket):
@@ -75,8 +76,8 @@ class KeepAliveWebsocket(ReconnectingWebsocket):
             "id": str(uuid.uuid4()),
         }
         response = await self._client._ws_api_request(
-            "userDataStream.subscribe.signature", 
-            signed=True, 
+            "userDataStream.subscribe.signature",
+            signed=True,
             params=params
         )
         return response.get("subscriptionId")
@@ -89,8 +90,8 @@ class KeepAliveWebsocket(ReconnectingWebsocket):
                 "subscriptionId": self._subscription_id,
             }
             await self._client._ws_api_request(
-                "userDataStream.unsubscribe", 
-                signed=False, 
+                "userDataStream.unsubscribe",
+                signed=False,
                 params=params
             )
             self._subscription_id = None

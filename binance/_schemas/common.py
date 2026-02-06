@@ -11,9 +11,9 @@ Design decisions:
 - frozen=True for immutability and hashability
 - omit_defaults=True for smaller payloads
 """
-import msgspec
 from typing import Literal
 
+import msgspec
 
 # ============ Base Class ============
 

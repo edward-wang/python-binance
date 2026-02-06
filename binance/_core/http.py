@@ -6,25 +6,26 @@ Features:
 - Auto time sync on -1021 error
 - Rate limit header extraction
 """
-import aiohttp
-import orjson
 from typing import Any
 
+import aiohttp
+import orjson
+
+from binance._core.auth import sign_request
 from binance._core.config import (
     BASE_URLS,
+    DNS_CACHE_TTL,
     POOL_CONNECTIONS,
     POOL_KEEPALIVE,
-    DNS_CACHE_TTL,
     TIMEOUT_DEFAULT,
 )
 from binance._core.context import context
-from binance._core.auth import sign_request
 from binance._core.exceptions import (
     APIErrorMeta,
-    TimestampError,
-    raise_for_error,
     ConnectionError,
     TimeoutError,
+    TimestampError,
+    raise_for_error,
 )
 
 

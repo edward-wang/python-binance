@@ -8,10 +8,9 @@ AsyncClient Core - 核心请求基础设施模块
 - 各 API 端点的 URI 构造方法
 """
 import asyncio
-from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional
 from urllib.parse import urlencode
-import time
+
 import aiohttp
 import yarl
 
@@ -20,6 +19,7 @@ from binance.exceptions import (
     BinanceRequestException,
 )
 from binance.helpers import get_loop
+
 from .base_client import BaseClient
 from .client import Client
 
@@ -209,4 +209,3 @@ class AsyncClientCore(BaseClient):
         self, path, signed=False, version=BaseClient.PUBLIC_API_VERSION, **kwargs
     ) -> Dict:
         return await self._request_api("delete", path, signed, version, **kwargs)
-

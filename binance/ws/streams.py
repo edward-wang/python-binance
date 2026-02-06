@@ -1,18 +1,15 @@
 import asyncio
 import time
 from enum import Enum
-from typing import Optional, List, Dict, Callable, Any
+from typing import Any, Callable, Dict, List, Optional
 
+from binance.async_client import AsyncClient
+from binance.enums import ContractType, FuturesType
+from binance.helpers import get_loop
 from binance.ws.constants import KEEPALIVE_TIMEOUT
 from binance.ws.keepalive_websocket import KeepAliveWebsocket
 from binance.ws.reconnecting_websocket import ReconnectingWebsocket
 from binance.ws.threaded_stream import ThreadedApiManager
-
-
-from binance.async_client import AsyncClient
-from binance.enums import FuturesType
-from binance.enums import ContractType
-from binance.helpers import get_loop
 
 
 class BinanceSocketType(str, Enum):
@@ -40,8 +37,8 @@ class BinanceSocketManager:
     WEBSOCKET_DEPTH_20 = "20"
 
     def __init__(
-        self, 
-        client: AsyncClient, 
+        self,
+        client: AsyncClient,
         user_timeout=KEEPALIVE_TIMEOUT,
         max_queue_size: int = 100,
     ):
@@ -965,7 +962,6 @@ class BinanceSocketManager:
         elif self.demo:
             stream_url = self.STREAM_DEMO_URL
         return self._get_account_socket("margin", stream_url=stream_url)
-
 
     def futures_socket(self):
         """Start a websocket for futures data
